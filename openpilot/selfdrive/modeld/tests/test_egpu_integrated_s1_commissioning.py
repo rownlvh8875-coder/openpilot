@@ -47,11 +47,14 @@ class TestS1Qualification(unittest.TestCase):
     )
 
   def metric(self, leg, p50=35.0, p95=40.0, p99=45.0, max_ms=50.0,
-             samples=200, gaps=0, fallbacks=0, guard=0, write_errors=0):
+             samples=200, gaps=0, fallbacks=0, guard=0, write_errors=0,
+             observer_fresh=None):
+    if observer_fresh is None and leg == "S1_ON":
+      observer_fresh = True
     return S1Metrics(
       leg=leg, samples=samples, p50_ms=p50, p95_ms=p95, p99_ms=p99, max_ms=max_ms,
       frame_gaps=gaps, fallbacks=fallbacks, guard_violations=guard,
-      observer_write_errors=write_errors,
+      observer_write_errors=write_errors, observer_state_fresh=observer_fresh,
     )
 
   def test_pass(self):
@@ -63,6 +66,7 @@ class TestS1Qualification(unittest.TestCase):
     result = qualify(values, self.policy())
     self.assertEqual(result["status"], "PASS")
     self.assertEqual(result["nextGate"], "S2_TELEMETRY_PLAN_ONLY")
+    self.assertTrue(result["observerStateFresh"])
     self.assertFalse(result["controlAuthorization"])
 
   def test_baseline_drift_is_hold(self):
@@ -94,6 +98,16 @@ class TestS1Qualification(unittest.TestCase):
     result = qualify(values, self.policy())
     self.assertEqual(result["status"], "FAIL")
     self.assertIn("observer_p95_increase", result["failReasons"])
+
+  def test_stale_observer_state_is_fail(self):
+    values = {
+      "S1_OFF_BEFORE": self.metric("S1_OFF_BEFORE"),
+      "S1_ON": self.metric("S1_ON", observer_fresh=False),
+      "S1_OFF_AFTER": self.metric("S1_OFF_AFTER"),
+    }
+    result = qualify(values, self.policy())
+    self.assertEqual(result["status"], "FAIL")
+    self.assertIn("observer_state_not_fresh", result["failReasons"])
 
   def test_sample_shortage_is_hold(self):
     values = {
