@@ -49,12 +49,16 @@ def main() -> int:
   ap.add_argument("--target", type=Path, default=Path("/data/openpilot-egpu-integrated-v6-src"))
   ap.add_argument("--backup", type=Path, required=True)
   ap.add_argument("--expected-target-head", default=None)
+  ap.add_argument("--live-provenance", type=Path, default=None,
+                  help="exact source-only manifest from egpu_integrated_live_provenance.py")
   args = ap.parse_args()
 
   live = args.live.resolve()
   target = args.target.resolve()
   backup = args.backup.resolve()
+  provenance = args.live_provenance.resolve() if args.live_provenance else None
   checks: list[dict[str, Any]] = []
+  informational: dict[str, Any] = {}
 
   is_onroad = read_param_bool("IsOnroad")
   is_offroad = read_param_bool("IsOffroad")
@@ -66,7 +70,10 @@ def main() -> int:
   checks.append(check(backup.is_dir(), "backup_directory_exists", str(backup)))
   checks.append(check((backup / "tracked_changes.patch").is_file(), "tracked_patch_backup_exists", str(backup / "tracked_changes.patch")))
   checks.append(check((backup / "status.txt").is_file(), "status_backup_exists", str(backup / "status.txt")))
+  if provenance is not None:
+    checks.append(check(provenance.is_file(), "live_provenance_manifest_exists", str(provenance)))
 
+  live_head = live_branch = None
   if (live / ".git").exists():
     rc, live_head, err = run_git(live, "rev-parse", "HEAD")
     checks.append(check(rc == 0, "live_head_readable", live_head or err))
@@ -74,14 +81,33 @@ def main() -> int:
     checks.append(check(rc == 0, "live_branch_readable", live_branch or err))
     rc, current_status, err = run_git(live, "status", "--porcelain=v1")
     checks.append(check(rc == 0, "live_status_readable", err or f"entries={len(current_status.splitlines())}"))
+
     try:
       saved_status = (backup / "status.txt").read_text(encoding="utf-8").rstrip("\n")
-      checks.append(check(rc == 0 and current_status == saved_status, "live_tree_matches_backup_snapshot",
-                          {"currentEntries": len(current_status.splitlines()), "savedEntries": len(saved_status.splitlines())}))
+      legacy_match = rc == 0 and current_status == saved_status
+      informational["legacyStatusExactMatch"] = legacy_match
+      informational["legacyStatusEntries"] = {
+        "current": len(current_status.splitlines()),
+        "saved": len(saved_status.splitlines()),
+      }
+      if provenance is None:
+        checks.append(check(legacy_match, "live_tree_matches_backup_snapshot_legacy",
+                            informational["legacyStatusEntries"]))
     except OSError as exc:
-      checks.append(check(False, "live_tree_matches_backup_snapshot", type(exc).__name__))
+      informational["legacyStatusReadError"] = type(exc).__name__
+      if provenance is None:
+        checks.append(check(False, "live_tree_matches_backup_snapshot_legacy", type(exc).__name__))
 
-  target_head = None
+    if provenance is not None and provenance.is_file():
+      tool = Path(__file__).resolve().with_name("egpu_integrated_live_provenance.py")
+      p = subprocess.run(
+        ["python3", str(tool), "verify", "--repo", str(live), "--manifest", str(provenance)],
+        text=True, capture_output=True, check=False,
+      )
+      detail = (p.stdout + p.stderr).strip()[-2000:]
+      checks.append(check(p.returncode == 0, "live_source_provenance_matches", detail))
+
+  target_head = target_branch = None
   if (target / ".git").exists():
     rc, target_head, err = run_git(target, "rev-parse", "HEAD")
     checks.append(check(rc == 0, "target_head_readable", target_head or err))
@@ -106,14 +132,20 @@ def main() -> int:
 
   failed = [item for item in checks if not item["pass"]]
   report = {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "purpose": "all-features-off-install-preflight",
     "status": "PASS" if not failed else "HOLD",
+    "verificationMode": "source-provenance" if provenance is not None else "legacy-status-exact",
     "live": str(live),
+    "liveHead": live_head,
+    "liveBranch": live_branch,
     "target": str(target),
-    "backup": str(backup),
     "targetHead": target_head,
+    "targetBranch": target_branch,
+    "backup": str(backup),
+    "liveProvenance": str(provenance) if provenance is not None else None,
     "checks": checks,
+    "informational": informational,
     "failedChecks": [item["name"] for item in failed],
     "authorizations": {
       "installAuthorization": False,
