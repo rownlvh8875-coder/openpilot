@@ -5,10 +5,12 @@ on:
     branches:
       - carrot-wip-integrated-v0
       - carrot-wip-integrated-v6
+      - dev-integrated-transition-safety
   pull_request:
     branches:
       - carrot-wip
       - carrot-wip-integrated-v0
+      - carrot-wip-integrated-v6
 
 permissions:
   contents: read
@@ -36,6 +38,9 @@ jobs:
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
             tools/egpu_integrated_install_preflight.py \
+            tools/egpu_integrated_live_provenance.py \
+            tools/egpu_integrated_transition_plan.py \
+            tools/egpu_integrated_postboot_verify.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -49,10 +54,33 @@ jobs:
           python -m unittest -v \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
+
+      - name: Verify transition tools are plan/read-only
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files = [
+            Path('tools/egpu_integrated_live_provenance.py'),
+            Path('tools/egpu_integrated_transition_plan.py'),
+            Path('tools/egpu_integrated_postboot_verify.py'),
+            Path('tools/egpu_integrated_install_preflight.py'),
+          ]
+          forbidden = (
+            'git switch', 'git checkout', 'git reset --hard', 'systemctl restart',
+            'sudo reboot', 'reboot -f', 'Params().put', 'Params().put_bool',
+          )
+          for path in files:
+            source = path.read_text(encoding='utf-8')
+            for token in forbidden:
+              if token in source:
+                raise SystemExit(f'forbidden mutating token in {path}: {token}')
+          print('transitionReadOnlyVerification=PASS')
+          PY
 
       - name: Verify parked probe has no control publication or manager registration
         run: |
