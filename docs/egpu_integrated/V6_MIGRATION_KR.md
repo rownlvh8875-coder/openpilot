@@ -16,6 +16,7 @@
 - generated `openpilot/cereal/services.h`는 source migration에 포함하지 않는다.
 - 최신 Carrot `StoppingLeadFilter`와 local v6 `H1Observability`를 모두 보존한다.
 - eGPU shadow는 controls/modelV2를 publish하지 않는다.
+- 이 migration은 이미 사용 중인 local v6 동작을 보존하는 단계이며, 새로운 사용자 설정/동작 계약 문서는 v6 기능의 정식 승격 시 작성한다.
 
 ## Upstream drift gate
 
