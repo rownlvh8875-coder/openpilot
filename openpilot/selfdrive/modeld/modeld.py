@@ -24,6 +24,15 @@ from openpilot.selfdrive.modeld.compile_modeld import make_input_queues, WARP_IN
 from openpilot.selfdrive.modeld.fill_model_msg import fill_model_msg, fill_driving_model_data, fill_pose_msg, PublishState
 from openpilot.common.file_chunker import open_file_chunked
 from openpilot.selfdrive.modeld.constants import ModelConstants, Plan
+# EGPU-INTEGRATED OBSERVER IMPORT BEGIN
+from openpilot.selfdrive.modeld.egpu_integration_observer import EgpuIntegrationObserver
+# EGPU-INTEGRATED OBSERVER IMPORT END
+# EGPU-INTEGRATED TELEMETRY IMPORT BEGIN
+from openpilot.selfdrive.modeld.egpu_hardware_telemetry import EgpuHardwareTelemetry
+# EGPU-INTEGRATED TELEMETRY IMPORT END
+# EGPU-INTEGRATED SHADOW TAP IMPORT BEGIN
+from openpilot.selfdrive.modeld.egpu_integrated_shadow_tap import IntegratedShadowTap
+# EGPU-INTEGRATED SHADOW TAP IMPORT END
 from openpilot.selfdrive.modeld.helpers import (get_tg_input_devices, load_oob, modeld_pkl_path,
                                                 refresh_usbgpu_device_cache, select_vision_streams, usbgpu_compiled_path,
                                                 usbgpu_pcie_not_ready, usbgpu_present, wait_for_usbgpu_present)
@@ -221,6 +230,16 @@ def main(demo=False):
   cloudlog.warning("modeld init")
 
   params = Params()
+  # EGPU-INTEGRATED OBSERVER INIT BEGIN
+  egpu_observer = EgpuIntegrationObserver()
+  # EGPU-INTEGRATED OBSERVER INIT END
+  # EGPU-INTEGRATED TELEMETRY INIT BEGIN
+  egpu_hardware_telemetry = EgpuHardwareTelemetry()
+  egpu_hardware_telemetry.start()
+  # EGPU-INTEGRATED TELEMETRY INIT END
+  # EGPU-INTEGRATED SHADOW TAP INIT BEGIN
+  egpu_integrated_shadow_tap = IntegratedShadowTap()
+  # EGPU-INTEGRATED SHADOW TAP INIT END
   usbgpu_pkl_path = usbgpu_compiled_path()
   _compiled = usbgpu_pkl_path is not None
   _hardware_seen = params.get_bool("UsbGpuHardwareSeen")
@@ -471,6 +490,24 @@ def main(demo=False):
       'action_t': np.array([lat_action_t, long_action_t], dtype=np.float32),
     }
 
+    # EGPU-INTEGRATED SHADOW TAP SEND BEGIN
+    if not prepare_only:
+      egpu_integrated_shadow_tap.send(
+        model=model,
+        meta_main=meta_main,
+        meta_extra=meta_extra,
+        state_frame_id=frame_id,
+        v_ego=v_ego,
+        car_state=sm["carState"],
+        car_control=sm["carControl"],
+        transform_main=model_transform_main,
+        transform_extra=model_transform_extra,
+        inputs=inputs,
+      )
+    # EGPU-INTEGRATED SHADOW TAP SEND END
+    # EGPU-INTEGRATED OBSERVER ATTEMPT BEGIN
+    egpu_attempted_backend = "egpu" if bool(getattr(model, "usbgpu", False)) else "qcom"
+    # EGPU-INTEGRATED OBSERVER ATTEMPT END
     mt1 = time.perf_counter()
     try:
       model_output = model.run(bufs, transforms, inputs, prepare_only)
@@ -485,12 +522,24 @@ def main(demo=False):
       usbgpu_startup_pending = False
       model = small_model
       run_count = 0
+      # EGPU-INTEGRATED OBSERVER FALLBACK BEGIN
+      egpu_observer.note_fallback(frame_id=meta_main.frame_id, reason="runtime_model_execution_failed")
+      # EGPU-INTEGRATED OBSERVER FALLBACK END
       # Run the already-loaded internal model for this same camera frame. A
       # missing modelV2 frame during fallback can otherwise cascade into a
       # misleading communication/CAN error while selfdrived waits for modeld.
       model_output = model.run(bufs, transforms, inputs, prepare_only)
     mt2 = time.perf_counter()
     model_execution_time = mt2 - mt1
+    # EGPU-INTEGRATED OBSERVER SAMPLE BEGIN
+    egpu_observer.observe(
+      frame_id=meta_main.frame_id,
+      state_frame_id=frame_id,
+      attempted_backend=egpu_attempted_backend,
+      active_backend="egpu" if bool(getattr(model, "usbgpu", False)) else "qcom",
+      model_execution_s=model_execution_time,
+    )
+    # EGPU-INTEGRATED OBSERVER SAMPLE END
 
     if model_output is not None:
       modelv2_send = messaging.new_message('modelV2')
