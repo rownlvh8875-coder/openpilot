@@ -28,9 +28,12 @@ class S1Metrics:
   fallbacks: int
   guard_violations: int
   observer_write_errors: int
+  observer_state_fresh: bool | None
 
   @classmethod
   def from_dict(cls, value: dict[str, Any]) -> "S1Metrics":
+    fresh_raw = value.get("observerStateFresh")
+    fresh = fresh_raw if isinstance(fresh_raw, bool) else None
     return cls(
       leg=str(value["leg"]),
       samples=int(value["samples"]),
@@ -42,6 +45,7 @@ class S1Metrics:
       fallbacks=int(value.get("fallbackCount", 0)),
       guard_violations=int(value.get("guardViolationCount", 0)),
       observer_write_errors=int(value.get("observerWriteErrors", 0)),
+      observer_state_fresh=fresh,
     )
 
   def validate(self) -> None:
@@ -126,6 +130,9 @@ def qualify(metrics: dict[str, S1Metrics], policy: S1Policy) -> dict[str, Any]:
     if item.fallbacks > policy.max_fallbacks_per_leg:
       hard_fail.append(f"{item.leg}:fallbacks")
 
+  if on.observer_state_fresh is not True:
+    hard_fail.append("observer_state_not_fresh")
+
   baseline_p95_drift = abs(before.p95_ms - after.p95_ms)
   baseline_p99_drift = abs(before.p99_ms - after.p99_ms)
   if baseline_p95_drift > policy.max_baseline_p95_drift_ms:
@@ -180,6 +187,7 @@ def qualify(metrics: dict[str, S1Metrics], policy: S1Policy) -> dict[str, Any]:
     "failReasons": fail,
     "baselineDrift": {"p95Ms": baseline_p95_drift, "p99Ms": baseline_p99_drift},
     "observerDeltaVsMeanBaseline": deltas,
+    "observerStateFresh": on.observer_state_fresh,
     "controlAuthorization": False,
     "publicRoadAuthorization": False,
     "telemetryAuthorization": False,
