@@ -115,15 +115,16 @@ def qualify(metrics: dict[str, S1Metrics], policy: S1Policy) -> dict[str, Any]:
 
   before, on, after = (metrics[name] for name in LEGS)
   hold: list[str] = []
-  fail: list[str] = []
+  hard_fail: list[str] = []
+  attribution_fail: list[str] = []
 
   for item in (before, on, after):
     if item.samples < policy.min_samples_per_leg:
       hold.append(f"{item.leg}:sample_shortage")
     if item.guard_violations > policy.max_guard_violations_per_leg:
-      fail.append(f"{item.leg}:guard_violations")
+      hard_fail.append(f"{item.leg}:guard_violations")
     if item.fallbacks > policy.max_fallbacks_per_leg:
-      fail.append(f"{item.leg}:fallbacks")
+      hard_fail.append(f"{item.leg}:fallbacks")
 
   baseline_p95_drift = abs(before.p95_ms - after.p95_ms)
   baseline_p99_drift = abs(before.p99_ms - after.p99_ms)
@@ -146,18 +147,31 @@ def qualify(metrics: dict[str, S1Metrics], policy: S1Policy) -> dict[str, Any]:
   }
 
   if deltas["p50Ms"] > policy.max_observer_p50_increase_ms:
-    fail.append("observer_p50_increase")
+    attribution_fail.append("observer_p50_increase")
   if deltas["p95Ms"] > policy.max_observer_p95_increase_ms:
-    fail.append("observer_p95_increase")
+    attribution_fail.append("observer_p95_increase")
   if deltas["p99Ms"] > policy.max_observer_p99_increase_ms:
-    fail.append("observer_p99_increase")
+    attribution_fail.append("observer_p99_increase")
   if deltas["additionalFrameGaps"] > policy.max_additional_frame_gaps:
-    fail.append("observer_frame_gap_increase")
+    attribution_fail.append("observer_frame_gap_increase")
   if on.observer_write_errors > policy.max_observer_write_errors:
-    fail.append("observer_write_errors")
+    hard_fail.append("observer_write_errors")
 
-  # Baseline instability invalidates attribution even if observer deltas are small.
-  status = "FAIL" if fail else ("HOLD" if hold else "PASS")
+  # Hard operational faults remain FAIL. Otherwise unstable/incomplete baselines
+  # take precedence over attribution-based regressions because causality is not established.
+  if hard_fail:
+    status = "FAIL"
+    fail = hard_fail + attribution_fail
+  elif hold:
+    status = "HOLD"
+    fail = []
+  elif attribution_fail:
+    status = "FAIL"
+    fail = attribution_fail
+  else:
+    status = "PASS"
+    fail = []
+
   return {
     "schemaVersion": 1,
     "stage": "S1_OBSERVER_QUALIFICATION",
