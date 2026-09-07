@@ -69,7 +69,8 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_telemetry
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_telemetry \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_evidence
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
