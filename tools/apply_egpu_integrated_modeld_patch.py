@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Apply the reviewed S1+S2+S4B modeld integration to carrot-wip.
+"""Apply or verify the reviewed S1+S2+S4B modeld integration to carrot-wip.
 
 This script is intentionally strict:
 - only the reviewed carrot-wip modeld blob is accepted
 - partial marker states are rejected
-- removing every integration block must restore the exact original bytes
+- removing every integration block must restore the exact original Git blob
 - existing Carrot model execution, same-frame fallback, modelV2 publication,
   controls, car interfaces, and panda safety are not replaced
 """
@@ -91,9 +91,31 @@ SAMPLE_BLOCK = """    # EGPU-INTEGRATED OBSERVER SAMPLE BEGIN
     # EGPU-INTEGRATED OBSERVER SAMPLE END
 """
 
+RUNTIMES = (
+  "openpilot/selfdrive/modeld/egpu_integration_observer.py",
+  "openpilot/selfdrive/modeld/egpu_hardware_telemetry.py",
+  "openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py",
+  "openpilot/selfdrive/modeld/egpu_integrated_model_slots.py",
+  "openpilot/selfdrive/modeld/egpu_integrated_guardian.py",
+  "tools/egpu_integrated_s4b_shadow_probe.py",
+)
+
+LANDMARKS = (
+  'model_output = model.run(bufs, transforms, inputs, prepare_only)',
+  'cloudlog.exception("eGPU model failed, falling back to internal GPU")',
+  'model = small_model',
+  "pm.send('modelV2', modelv2_send)",
+  'sm = SubMaster(["deviceState", "carState"',
+)
+
 
 def git_hash(path: Path) -> str:
   p = subprocess.run(["git", "hash-object", str(path)], text=True, capture_output=True, check=True)
+  return p.stdout.strip()
+
+
+def git_hash_text(source: str) -> str:
+  p = subprocess.run(["git", "hash-object", "--stdin"], input=source, text=True, capture_output=True, check=True)
   return p.stdout.strip()
 
 
@@ -126,6 +148,22 @@ def strip_all(source: str) -> str:
 
 def marker_count(source: str) -> int:
   return sum(source.count(begin) for begin, _ in BLOCKS)
+
+
+def validate_patched(source: str) -> str:
+  count = marker_count(source)
+  if count != len(BLOCKS):
+    raise SystemExit(f"incomplete marker set: {count}/{len(BLOCKS)}")
+  restored_blob = git_hash_text(strip_all(source))
+  if restored_blob != PINNED_BLOB:
+    raise SystemExit(f"stripped modeld blob mismatch got={restored_blob} expected={PINNED_BLOB}")
+  for landmark in LANDMARKS:
+    if landmark not in source:
+      raise SystemExit(f"required Carrot landmark missing: {landmark}")
+  py_compile.compile(str(TARGET), doraise=True)
+  for runtime in RUNTIMES:
+    py_compile.compile(runtime, doraise=True)
+  return restored_blob
 
 
 def patch(source: str) -> str:
@@ -164,10 +202,11 @@ def patch(source: str) -> str:
 
 
 def main() -> int:
-  original = TARGET.read_text(encoding="utf-8")
-  count = marker_count(original)
+  source = TARGET.read_text(encoding="utf-8")
+  count = marker_count(source)
   if count == len(BLOCKS):
-    print("alreadyPatched=true")
+    restored_blob = validate_patched(source)
+    print(f"alreadyPatched=true\nmarkers={count}\nrestoredBlob={restored_blob}\nbyteRestoreVerification=PASS")
     return 0
   if count:
     raise SystemExit(f"partial marker set before patch: {count}/{len(BLOCKS)}")
@@ -176,35 +215,12 @@ def main() -> int:
   if blob != PINNED_BLOB:
     raise SystemExit(f"modeld blob mismatch got={blob} expected={PINNED_BLOB}")
 
-  patched = patch(original)
-  if marker_count(patched) != len(BLOCKS):
-    raise SystemExit("generated incomplete marker set")
-  if strip_all(patched) != original:
+  patched = patch(source)
+  if strip_all(patched) != source:
     raise SystemExit("marker removal did not restore original modeld.py byte-for-byte")
-
-  for landmark in (
-    'model_output = model.run(bufs, transforms, inputs, prepare_only)',
-    'cloudlog.exception("eGPU model failed, falling back to internal GPU")',
-    'model = small_model',
-    "pm.send('modelV2', modelv2_send)",
-    'sm = SubMaster(["deviceState", "carState"',
-  ):
-    if landmark not in patched:
-      raise SystemExit(f"required Carrot landmark missing after patch: {landmark}")
-
   TARGET.write_text(patched, encoding="utf-8")
-  py_compile.compile(str(TARGET), doraise=True)
-  for runtime in (
-    "openpilot/selfdrive/modeld/egpu_integration_observer.py",
-    "openpilot/selfdrive/modeld/egpu_hardware_telemetry.py",
-    "openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py",
-    "openpilot/selfdrive/modeld/egpu_integrated_model_slots.py",
-    "openpilot/selfdrive/modeld/egpu_integrated_guardian.py",
-    "tools/egpu_integrated_s4b_shadow_probe.py",
-  ):
-    py_compile.compile(runtime, doraise=True)
-
-  print(f"patched=true\noriginalBlob={blob}\nmarkers={len(BLOCKS)}\nbyteRestoreVerification=PASS")
+  restored_blob = validate_patched(patched)
+  print(f"patched=true\noriginalBlob={blob}\nmarkers={len(BLOCKS)}\nrestoredBlob={restored_blob}\nbyteRestoreVerification=PASS")
   return 0
 
 
