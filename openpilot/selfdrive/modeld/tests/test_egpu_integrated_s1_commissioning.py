@@ -75,6 +75,16 @@ class TestS1Qualification(unittest.TestCase):
     self.assertEqual(result["status"], "HOLD")
     self.assertIn("baseline_p95_drift", result["holdReasons"])
 
+  def test_baseline_drift_prevents_latency_attribution_fail(self):
+    values = {
+      "S1_OFF_BEFORE": self.metric("S1_OFF_BEFORE", p50=35.0, p95=40.0, p99=45.0, max_ms=50.0),
+      "S1_ON": self.metric("S1_ON", p50=40.0, p95=48.0, p99=55.0, max_ms=60.0),
+      "S1_OFF_AFTER": self.metric("S1_OFF_AFTER", p50=36.0, p95=45.0, p99=51.0, max_ms=56.0),
+    }
+    result = qualify(values, self.policy())
+    self.assertEqual(result["status"], "HOLD")
+    self.assertEqual(result["failReasons"], [])
+
   def test_observer_latency_regression_is_fail(self):
     values = {
       "S1_OFF_BEFORE": self.metric("S1_OFF_BEFORE"),
@@ -99,6 +109,16 @@ class TestS1Qualification(unittest.TestCase):
       "S1_OFF_BEFORE": self.metric("S1_OFF_BEFORE"),
       "S1_ON": self.metric("S1_ON", guard=1),
       "S1_OFF_AFTER": self.metric("S1_OFF_AFTER"),
+    }
+    result = qualify(values, self.policy())
+    self.assertEqual(result["status"], "FAIL")
+    self.assertIn("S1_ON:guard_violations", result["failReasons"])
+
+  def test_hard_fail_wins_even_with_baseline_drift(self):
+    values = {
+      "S1_OFF_BEFORE": self.metric("S1_OFF_BEFORE", p95=40.0, p99=45.0),
+      "S1_ON": self.metric("S1_ON", guard=1),
+      "S1_OFF_AFTER": self.metric("S1_OFF_AFTER", p95=44.0, p99=50.0),
     }
     result = qualify(values, self.policy())
     self.assertEqual(result["status"], "FAIL")
