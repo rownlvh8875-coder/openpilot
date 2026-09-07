@@ -1,0 +1,71 @@
+name: egpu-integrated-ci
+
+on:
+  push:
+    branches:
+      - carrot-wip-integrated-v0
+  pull_request:
+    branches:
+      - carrot-wip
+
+permissions:
+  contents: read
+
+jobs:
+  integrated-egpu-safety:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile integrated Python sources
+        run: |
+          python -m py_compile \
+            openpilot/selfdrive/modeld/modeld.py \
+            openpilot/selfdrive/modeld/egpu_integration_observer.py \
+            openpilot/selfdrive/modeld/egpu_hardware_telemetry.py \
+            openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py \
+            openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
+            openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
+            tools/egpu_integrated_s4b_shadow_probe.py \
+            tools/apply_egpu_integrated_modeld_patch.py
+
+      - name: Verify modeld patch restores reviewed Carrot source
+        run: python tools/apply_egpu_integrated_modeld_patch.py
+
+      - name: Run hardware-free integrated runtime tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m unittest -v openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime
+
+      - name: Verify parked probe has no control publication or manager registration
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          path = Path('tools/egpu_integrated_s4b_shadow_probe.py')
+          tree = ast.parse(path.read_text(encoding='utf-8'))
+          forbidden_imports = {'PubMaster'}
+          for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+              for alias in node.names:
+                if alias.name in forbidden_imports:
+                  raise SystemExit(f'forbidden import: {alias.name}')
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'send':
+              if node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value in {'modelV2', 'carControl'}:
+                raise SystemExit(f'forbidden publish call: {node.args[0].value}')
+          source = path.read_text(encoding='utf-8')
+          for required in ('controlEligible", False', 'qualityComparisonEligible", False', 'MAX_S4B_HZ = 5.0'):
+            if required not in source:
+              raise SystemExit(f'missing safety invariant: {required}')
+          print('staticSafetyVerification=PASS')
+          PY
+
+      - name: Diff hygiene
+        run: git diff --check
