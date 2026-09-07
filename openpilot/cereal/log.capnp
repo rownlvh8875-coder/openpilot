@@ -2698,8 +2698,8 @@ struct Event {
     carrotMan @107 :Custom.CarrotMan;
     carrotNavi @108 :Custom.CarrotNaviState;
     carrotNaviMedia @109 :Custom.CarrotNaviMedia;
-    customReserved3 @110 :Custom.CustomReserved3;
-    customReserved4 @111 :Custom.CustomReserved4;
+    carrotH1ReplayTrace @110 :Custom.CarrotH1ReplayTrace;
+    carrotH1ConfigSnapshot @111 :Custom.CarrotH1ConfigSnapshot;
     customReserved5 @112 :Custom.CustomReserved5;
     customReserved6 @113 :Custom.CustomReserved6;
     customReserved7 @114 :Custom.CustomReserved7;

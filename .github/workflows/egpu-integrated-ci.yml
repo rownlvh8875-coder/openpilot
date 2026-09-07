@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - carrot-wip-integrated-v0
+      - carrot-wip-integrated-v6
   pull_request:
     branches:
       - carrot-wip
+      - carrot-wip-integrated-v0
 
 permissions:
   contents: read
