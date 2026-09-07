@@ -45,6 +45,7 @@ jobs:
             tools/egpu_integrated_s1_plan.py \
             tools/egpu_integrated_s1_qualification.py \
             tools/egpu_integrated_s1_recorder.py \
+            tools/egpu_integrated_s1_build_evidence.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -60,7 +61,8 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
@@ -76,6 +78,7 @@ jobs:
             Path('tools/egpu_integrated_install_preflight.py'),
             Path('tools/egpu_integrated_s1_plan.py'),
             Path('tools/egpu_integrated_s1_qualification.py'),
+            Path('tools/egpu_integrated_s1_build_evidence.py'),
           ]
           forbidden = (
             'git switch', 'git checkout', 'git reset --hard', 'systemctl restart',
