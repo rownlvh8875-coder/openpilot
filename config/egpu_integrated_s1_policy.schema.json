@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrated eGPU S1 observer research policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "minSamplesPerLeg",
+    "maxBaselineP95DriftMs",
+    "maxBaselineP99DriftMs",
+    "maxObserverP50IncreaseMs",
+    "maxObserverP95IncreaseMs",
+    "maxObserverP99IncreaseMs",
+    "maxAdditionalFrameGaps",
+    "maxFallbacksPerLeg",
+    "maxGuardViolationsPerLeg",
+    "maxObserverWriteErrors"
+  ],
+  "properties": {
+    "minSamplesPerLeg": {"type": "integer", "minimum": 1},
+    "maxBaselineP95DriftMs": {"type": "number", "minimum": 0},
+    "maxBaselineP99DriftMs": {"type": "number", "minimum": 0},
+    "maxObserverP50IncreaseMs": {"type": "number", "minimum": 0},
+    "maxObserverP95IncreaseMs": {"type": "number", "minimum": 0},
+    "maxObserverP99IncreaseMs": {"type": "number", "minimum": 0},
+    "maxAdditionalFrameGaps": {"type": "integer", "minimum": 0},
+    "maxFallbacksPerLeg": {"type": "integer", "minimum": 0},
+    "maxGuardViolationsPerLeg": {"type": "integer", "minimum": 0},
+    "maxObserverWriteErrors": {"type": "integer", "minimum": 0}
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrated eGPU S1 observer evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["legs"],
+  "properties": {
+    "legs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["S1_OFF_BEFORE", "S1_ON", "S1_OFF_AFTER"],
+      "properties": {
+        "S1_OFF_BEFORE": {"$ref": "#/$defs/leg"},
+        "S1_ON": {"$ref": "#/$defs/leg"},
+        "S1_OFF_AFTER": {"$ref": "#/$defs/leg"}
+      }
+    }
+  },
+  "$defs": {
+    "leg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "leg",
+        "samples",
+        "p50ModelExecutionMs",
+        "p95ModelExecutionMs",
+        "p99ModelExecutionMs",
+        "maxModelExecutionMs",
+        "frameGapCount",
+        "fallbackCount",
+        "guardViolationCount",
+        "observerWriteErrors",
+        "observerStateFresh"
+      ],
+      "properties": {
+        "leg": {"type": "string", "enum": ["S1_OFF_BEFORE", "S1_ON", "S1_OFF_AFTER"]},
+        "samples": {"type": "integer", "minimum": 0},
+        "p50ModelExecutionMs": {"type": "number", "minimum": 0},
+        "p95ModelExecutionMs": {"type": "number", "minimum": 0},
+        "p99ModelExecutionMs": {"type": "number", "minimum": 0},
+        "maxModelExecutionMs": {"type": "number", "minimum": 0},
+        "frameGapCount": {"type": "integer", "minimum": 0},
+        "fallbackCount": {"type": "integer", "minimum": 0},
+        "guardViolationCount": {"type": "integer", "minimum": 0},
+        "observerWriteErrors": {"type": "integer", "minimum": 0},
+        "observerStateFresh": {"type": ["boolean", "null"]}
+      }
+    }
+  }
+}
