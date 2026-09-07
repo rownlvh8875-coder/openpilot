@@ -6,6 +6,7 @@ on:
       - carrot-wip-integrated-v0
       - carrot-wip-integrated-v6
       - dev-integrated-transition-safety
+      - dev-integrated-s1-commissioning
   pull_request:
     branches:
       - carrot-wip
@@ -41,6 +42,8 @@ jobs:
             tools/egpu_integrated_live_provenance.py \
             tools/egpu_integrated_transition_plan.py \
             tools/egpu_integrated_postboot_verify.py \
+            tools/egpu_integrated_s1_plan.py \
+            tools/egpu_integrated_s1_qualification.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -55,12 +58,13 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
 
-      - name: Verify transition tools are plan/read-only
+      - name: Verify transition and S1 tools are plan/read-only
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -69,17 +73,36 @@ jobs:
             Path('tools/egpu_integrated_transition_plan.py'),
             Path('tools/egpu_integrated_postboot_verify.py'),
             Path('tools/egpu_integrated_install_preflight.py'),
+            Path('tools/egpu_integrated_s1_plan.py'),
+            Path('tools/egpu_integrated_s1_qualification.py'),
           ]
           forbidden = (
             'git switch', 'git checkout', 'git reset --hard', 'systemctl restart',
             'sudo reboot', 'reboot -f', 'Params().put', 'Params().put_bool',
+            "pm.send('modelV2'", 'PubMaster(',
           )
           for path in files:
             source = path.read_text(encoding='utf-8')
             for token in forbidden:
               if token in source:
-                raise SystemExit(f'forbidden mutating token in {path}: {token}')
-          print('transitionReadOnlyVerification=PASS')
+                raise SystemExit(f'forbidden mutating/control token in {path}: {token}')
+          print('transitionAndS1ReadOnlyVerification=PASS')
+          PY
+
+      - name: Verify S1 policy schema has no hidden defaults
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          schema = json.loads(Path('config/egpu_integrated_s1_policy.schema.json').read_text())
+          required = set(schema['required'])
+          props = schema['properties']
+          if set(props) != required:
+            raise SystemExit('S1 policy properties and required fields differ')
+          for name, value in props.items():
+            if 'default' in value:
+              raise SystemExit(f'hidden default in S1 policy: {name}')
+          print('s1PolicyNoDefaults=PASS')
           PY
 
       - name: Verify parked probe has no control publication or manager registration
