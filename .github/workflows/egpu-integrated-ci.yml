@@ -48,7 +48,8 @@ jobs:
         run: |
           python -m unittest -v \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
