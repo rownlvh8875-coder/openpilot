@@ -36,6 +36,7 @@ jobs:
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
             tools/egpu_integrated_install_preflight.py \
+            tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
       - name: Verify modeld patch restores reviewed Carrot source
@@ -44,7 +45,13 @@ jobs:
       - name: Run hardware-free integrated runtime tests
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m unittest -v openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime
+        run: |
+          python -m unittest -v \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat
+
+      - name: Verify current upstream Carrot integration boundary
+        run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
 
       - name: Verify parked probe has no control publication or manager registration
         run: |
