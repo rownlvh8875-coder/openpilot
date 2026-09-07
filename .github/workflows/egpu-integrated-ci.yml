@@ -44,6 +44,7 @@ jobs:
             tools/egpu_integrated_postboot_verify.py \
             tools/egpu_integrated_s1_plan.py \
             tools/egpu_integrated_s1_qualification.py \
+            tools/egpu_integrated_s1_recorder.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -64,7 +65,7 @@ jobs:
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
 
-      - name: Verify transition and S1 tools are plan/read-only
+      - name: Verify transition and S1 plan tools are non-executing
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -86,7 +87,31 @@ jobs:
             for token in forbidden:
               if token in source:
                 raise SystemExit(f'forbidden mutating/control token in {path}: {token}')
-          print('transitionAndS1ReadOnlyVerification=PASS')
+          print('transitionAndS1PlanVerification=PASS')
+          PY
+
+      - name: Verify S1 recorder cannot mutate markers or publish controls
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          path = Path('tools/egpu_integrated_s1_recorder.py')
+          tree = ast.parse(path.read_text(encoding='utf-8'))
+          marker_names = {'OBSERVER_MARKER', 'TELEMETRY_MARKER', 'SHADOW_MARKER'}
+          forbidden_marker_methods = {'touch', 'unlink', 'write_text', 'write_bytes', 'rename', 'replace'}
+          for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+              if isinstance(node.func.value, ast.Name) and node.func.value.id in marker_names and node.func.attr in forbidden_marker_methods:
+                raise SystemExit(f'forbidden marker mutation: {node.func.value.id}.{node.func.attr}')
+            if isinstance(node, ast.ImportFrom):
+              for alias in node.names:
+                if alias.name == 'PubMaster':
+                  raise SystemExit('S1 recorder must not import PubMaster')
+          source = path.read_text(encoding='utf-8')
+          for token in ('Params(', '.put_bool(', '.put(', 'PubMaster('):
+            if token in source:
+              raise SystemExit(f'forbidden S1 recorder token: {token}')
+          print('s1RecorderReadOnlyVerification=PASS')
           PY
 
       - name: Verify S1 policy schema has no hidden defaults
@@ -123,7 +148,7 @@ jobs:
               if node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value in {'modelV2', 'carControl'}:
                 raise SystemExit(f'forbidden publish call: {node.args[0].value}')
           source = path.read_text(encoding='utf-8')
-          for required in ('controlEligible", False', 'qualityComparisonEligible", False', 'MAX_S4B_HZ = 5.0'):
+          for required in ('controlEligible\", False', 'qualityComparisonEligible\", False', 'MAX_S4B_HZ = 5.0'):
             if required not in source:
               raise SystemExit(f'missing safety invariant: {required}')
           print('staticSafetyVerification=PASS')
