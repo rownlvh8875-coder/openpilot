@@ -29,6 +29,26 @@ class TestEgpuIntegratedSourceCompat(unittest.TestCase):
     self.assertEqual(status, "REVIEW_REQUIRED")
     self.assertEqual(changed, ["a"])
 
+  def test_v6_no_path_drift_uses_distinct_label(self):
+    reviewed = {"planner": "1"}
+    status, changed = classify(
+      "old", "new", reviewed, dict(reviewed),
+      equivalent_label="NO_V6_PATH_DRIFT",
+      review_label="V6_REBASE_REVIEW_REQUIRED",
+    )
+    self.assertEqual(status, "NO_V6_PATH_DRIFT")
+    self.assertEqual(changed, [])
+
+  def test_v6_path_drift_requires_rebase_review(self):
+    reviewed = {"planner": "1"}
+    status, changed = classify(
+      "old", "new", reviewed, {"planner": "2"},
+      equivalent_label="NO_V6_PATH_DRIFT",
+      review_label="V6_REBASE_REVIEW_REQUIRED",
+    )
+    self.assertEqual(status, "V6_REBASE_REVIEW_REQUIRED")
+    self.assertEqual(changed, ["planner"])
+
 
 if __name__ == "__main__":
   unittest.main()
