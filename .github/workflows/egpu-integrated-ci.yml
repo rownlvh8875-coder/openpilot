@@ -7,6 +7,7 @@ on:
       - carrot-wip-integrated-v6
       - dev-integrated-transition-safety
       - dev-integrated-s1-commissioning
+      - dev-integrated-s2-telemetry
   pull_request:
     branches:
       - carrot-wip
@@ -46,6 +47,11 @@ jobs:
             tools/egpu_integrated_s1_qualification.py \
             tools/egpu_integrated_s1_recorder.py \
             tools/egpu_integrated_s1_build_evidence.py \
+            tools/egpu_integrated_s2a_plan.py \
+            tools/egpu_integrated_s2a_recorder.py \
+            tools/egpu_integrated_s2a_build_evidence.py \
+            tools/egpu_integrated_s2a_qualification.py \
+            tools/egpu_integrated_s2b_plan.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -62,12 +68,13 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_telemetry
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
 
-      - name: Verify transition and S1 plan tools are non-executing
+      - name: Verify plan and qualification tools are non-executing
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -79,6 +86,10 @@ jobs:
             Path('tools/egpu_integrated_s1_plan.py'),
             Path('tools/egpu_integrated_s1_qualification.py'),
             Path('tools/egpu_integrated_s1_build_evidence.py'),
+            Path('tools/egpu_integrated_s2a_plan.py'),
+            Path('tools/egpu_integrated_s2a_qualification.py'),
+            Path('tools/egpu_integrated_s2a_build_evidence.py'),
+            Path('tools/egpu_integrated_s2b_plan.py'),
           ]
           forbidden = (
             'git switch', 'git checkout', 'git reset --hard', 'systemctl restart',
@@ -90,47 +101,51 @@ jobs:
             for token in forbidden:
               if token in source:
                 raise SystemExit(f'forbidden mutating/control token in {path}: {token}')
-          print('transitionAndS1PlanVerification=PASS')
+          print('planAndQualificationVerification=PASS')
           PY
 
-      - name: Verify S1 recorder cannot mutate markers or publish controls
+      - name: Verify S1 and S2A recorders cannot mutate markers or publish controls
         run: |
           python - <<'PY'
           import ast
           from pathlib import Path
-          path = Path('tools/egpu_integrated_s1_recorder.py')
-          tree = ast.parse(path.read_text(encoding='utf-8'))
           marker_names = {'OBSERVER_MARKER', 'TELEMETRY_MARKER', 'SHADOW_MARKER'}
           forbidden_marker_methods = {'touch', 'unlink', 'write_text', 'write_bytes', 'rename', 'replace'}
-          for node in ast.walk(tree):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-              if isinstance(node.func.value, ast.Name) and node.func.value.id in marker_names and node.func.attr in forbidden_marker_methods:
-                raise SystemExit(f'forbidden marker mutation: {node.func.value.id}.{node.func.attr}')
-            if isinstance(node, ast.ImportFrom):
-              for alias in node.names:
-                if alias.name == 'PubMaster':
-                  raise SystemExit('S1 recorder must not import PubMaster')
-          source = path.read_text(encoding='utf-8')
-          for token in ('Params(', '.put_bool(', '.put(', 'PubMaster('):
-            if token in source:
-              raise SystemExit(f'forbidden S1 recorder token: {token}')
-          print('s1RecorderReadOnlyVerification=PASS')
+          for path in [Path('tools/egpu_integrated_s1_recorder.py'), Path('tools/egpu_integrated_s2a_recorder.py')]:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            for node in ast.walk(tree):
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name) and node.func.value.id in marker_names and node.func.attr in forbidden_marker_methods:
+                  raise SystemExit(f'forbidden marker mutation in {path}: {node.func.value.id}.{node.func.attr}')
+              if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                  if alias.name == 'PubMaster':
+                    raise SystemExit(f'{path} must not import PubMaster')
+            source = path.read_text(encoding='utf-8')
+            for token in ('Params(', '.put_bool(', '.put(', 'PubMaster('):
+              if token in source:
+                raise SystemExit(f'forbidden recorder token in {path}: {token}')
+          print('recorderReadOnlyVerification=PASS')
           PY
 
-      - name: Verify S1 policy schema has no hidden defaults
+      - name: Verify commissioning policy schemas have no hidden defaults
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          schema = json.loads(Path('config/egpu_integrated_s1_policy.schema.json').read_text())
-          required = set(schema['required'])
-          props = schema['properties']
-          if set(props) != required:
-            raise SystemExit('S1 policy properties and required fields differ')
-          for name, value in props.items():
-            if 'default' in value:
-              raise SystemExit(f'hidden default in S1 policy: {name}')
-          print('s1PolicyNoDefaults=PASS')
+          for path in [
+            Path('config/egpu_integrated_s1_policy.schema.json'),
+            Path('config/egpu_integrated_s2a_policy.schema.json'),
+          ]:
+            schema = json.loads(path.read_text())
+            required = set(schema['required'])
+            props = schema['properties']
+            if set(props) != required:
+              raise SystemExit(f'policy properties and required fields differ: {path}')
+            for name, value in props.items():
+              if 'default' in value:
+                raise SystemExit(f'hidden default in {path}: {name}')
+          print('commissioningPolicyNoDefaults=PASS')
           PY
 
       - name: Verify parked probe has no control publication or manager registration
