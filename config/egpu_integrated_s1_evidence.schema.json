@@ -30,7 +30,8 @@
         "frameGapCount",
         "fallbackCount",
         "guardViolationCount",
-        "observerWriteErrors"
+        "observerWriteErrors",
+        "observerStateFresh"
       ],
       "properties": {
         "leg": {"type": "string", "enum": ["S1_OFF_BEFORE", "S1_ON", "S1_OFF_AFTER"]},
@@ -42,7 +43,8 @@
         "frameGapCount": {"type": "integer", "minimum": 0},
         "fallbackCount": {"type": "integer", "minimum": 0},
         "guardViolationCount": {"type": "integer", "minimum": 0},
-        "observerWriteErrors": {"type": "integer", "minimum": 0}
+        "observerWriteErrors": {"type": "integer", "minimum": 0},
+        "observerStateFresh": {"type": ["boolean", "null"]}
       }
     }
   }
