@@ -35,6 +35,7 @@ jobs:
             openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
+            tools/egpu_integrated_install_preflight.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
       - name: Verify modeld patch restores reviewed Carrot source
