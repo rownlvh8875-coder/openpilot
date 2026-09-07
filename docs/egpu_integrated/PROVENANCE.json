@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "capturedDate": "2026-09-07",
+  "upstream": {
+    "repository": "ajouatom/openpilot",
+    "branch": "carrot-wip",
+    "reviewedHead": "6f4c00e625dc3d41d3776427a272a5c3fed75e6c",
+    "reviewedModeldBlob": "e4de3eb2236f6bb0c54c87666099147311602f4f"
+  },
+  "integration": {
+    "repository": "rownlvh8875-coder/openpilot",
+    "baseBranch": "carrot-wip-integrated-v0",
+    "vehicleMigrationBranch": "carrot-wip-integrated-v6",
+    "controlAuthorization": false,
+    "publicRoadShadowAuthorization": false
+  },
+  "localV6Migration": {
+    "sourceLiveBranch": "carrot-wip",
+    "sourceLiveHead": "ce3d76301c988db8aa955e1ebc6496f0a0fd2abc",
+    "trackedFilesMigrated": 6,
+    "trackedDiffAdditions": 179,
+    "trackedDiffDeletions": 36,
+    "additionalSourceFilesMigrated": [
+      "opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc",
+      "openpilot/selfdrive/controls/lib/h1_observability.py"
+    ],
+    "generatedFilesExcluded": [
+      "openpilot/cereal/services.h"
+    ],
+    "manualConflictResolution": {
+      "path": "openpilot/selfdrive/controls/plannerd.py",
+      "resolution": "preserve both latest Carrot StoppingLeadFilter and local v6 H1Observability imports because both are used"
+    }
+  },
+  "safetyBoundary": {
+    "carrotWipOriginalBranchModified": false,
+    "liveCommaCheckoutModifiedByIntegration": false,
+    "shadowPublishesControls": false,
+    "pandaSafetyModified": false,
+    "actuatorLimitsModified": false,
+    "s4bMaxHz": 5.0,
+    "s4bStationaryOnly": true
+  }
+}
