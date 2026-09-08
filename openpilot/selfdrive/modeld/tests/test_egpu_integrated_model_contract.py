@@ -6,6 +6,7 @@ import unittest
 
 from openpilot.selfdrive.modeld.big_model import BigModelManifest, TGC_MODEL
 from openpilot.selfdrive.modeld.egpu_integrated_model_contract import (
+  CONTRACT_POLICY,
   EXPECTED_BRANCH,
   INTERFACE_PATHS,
   ModelPairContract,
@@ -72,7 +73,7 @@ class TestModelPairContract(unittest.TestCase):
     self.assertEqual(self.current.registry.qcom.artifact.size, QCOM_SIZE)
     self.assertEqual(self.current.registry.egpu.artifact.sha256, BIG_SHA)
     self.assertEqual(self.current.registry.egpu.artifact.size, int(TGC_MODEL["size"]))
-    self.assertTrue(payload["policy"]["oneBigOneSmallBaseline"])
+    self.assertEqual(payload["policy"], CONTRACT_POLICY)
     self.assertFalse(payload["policy"]["runtimeHotSwap"])
     self.assertFalse(payload["policy"]["crossGenerationMix"])
     self.assertFalse(payload["policy"]["controlAuthorization"])
@@ -92,6 +93,31 @@ class TestModelPairContract(unittest.TestCase):
     payload["contractId"] = "0" * 64
     with self.assertRaises(ValueError):
       contract_from_dict(payload)
+
+  def test_policy_tamper_is_rejected_even_if_contract_id_is_unchanged(self):
+    payload = contract_payload(self.current)
+    payload["policy"]["runtimeHotSwap"] = True
+    with self.assertRaises(ValueError):
+      contract_from_dict(payload)
+
+  def test_registry_policy_tamper_is_rejected(self):
+    payload = contract_payload(self.current)
+    payload["registry"]["policy"]["crossSlotFallback"] = True
+    with self.assertRaises(ValueError):
+      contract_from_dict(payload)
+
+  def test_unknown_top_level_field_is_rejected(self):
+    payload = contract_payload(self.current)
+    payload["activation"] = "enabled"
+    with self.assertRaises(ValueError):
+      contract_from_dict(payload)
+
+  def test_slot_generation_must_match_contract_generation(self):
+    qcom = replace(self.current.registry.qcom, generation=1)
+    registry = ModelSlotRegistry(qcom=qcom, egpu=self.current.registry.egpu, fallback_slot="qcom")
+    broken = rebuild(self.current, registry=registry)
+    with self.assertRaises(ValueError):
+      broken.validate()
 
   def test_canonical_branch_enforcement_is_explicit(self):
     binding = git_source_binding(ROOT)
@@ -123,8 +149,6 @@ class TestModelPairContract(unittest.TestCase):
 
   def test_candidate_source_change_is_hold(self):
     source = replace(self.current.source, head="b" * 40)
-    candidate = rebuild(self.current, source=source, generation=1)
-    # Give the candidate a different BIG so the source reason is independently observable.
     candidate_big = build_contract(ROOT, generation=1, big_manifest=candidate_manifest("4"), expected_branch=None)
     candidate = rebuild(candidate_big, source=source)
     result = compare_candidate(self.current, candidate)
@@ -149,6 +173,7 @@ class TestModelPairContract(unittest.TestCase):
   def test_candidate_qcom_change_is_hold(self):
     qcom = replace(
       self.current.registry.qcom,
+      generation=1,
       artifact=ModelArtifact("driving_supercombo.onnx", QCOM_SIZE, "d" * 64),
       model_id="carrot-small-dddddddddddddddd",
       ref="dddddddddddddddd",
