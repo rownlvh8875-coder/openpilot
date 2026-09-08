@@ -1,17 +1,18 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "capturedDate": "2026-09-08",
   "upstream": {
     "repository": "ajouatom/openpilot",
     "branch": "carrot-wip",
-    "reviewedHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
-    "previousReviewedHead": "e8937726af50ac57681b560015076a5b596e960d",
+    "reviewedHead": "b7ab68addc29c3b9dc8f02023de36dba7109ed8c",
+    "previousReviewedHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
     "reviewedModeldBlob": "e4de3eb2236f6bb0c54c87666099147311602f4f",
     "reviewedSeries": [
       "bd2fd192e71de8417afcc5f2d8fa3e155a4d2177",
       "00fe08f113b500c76a60a7a0efd562d46a23d92e",
       "e8937726af50ac57681b560015076a5b596e960d",
-      "a92d3a787e84a29949ca2b802f6a78fc9b580e87"
+      "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+      "b7ab68addc29c3b9dc8f02023de36dba7109ed8c"
     ],
     "reviewNotes": [
       "All eGPU-critical blobs remained identical to the previous reviewed baseline.",
@@ -21,8 +22,15 @@
       "a92d3a extends radar replay source hashing and deployment source bundles to opendbc Python/capnp/DBC sources.",
       "Expanded AMD/USB tree and control-sensitive object IDs are unchanged between e893 and a92d3a.",
       "Integrated bundle coverage additionally matches the hash source families, including opendbc/can, safety, and controls/lib.",
-      "Hyundai radar DBC and H1 are local-v6 additions absent upstream; their future upstream appearance still requires review."
-    ]
+      "Hyundai radar DBC and H1 are local-v6 additions absent upstream; their future upstream appearance still requires review.",
+      "b7ab68a is reviewed for selective offline radar replay integration. It is not fully integrated upstream code.",
+      "All fourteen Tesla control/CAN/settings/docs/test paths introduced through 20c7bb7 remain at retained integrated source 8997be8; two new tests remain absent.",
+      "Six radar paths from b7ab68a are adapted in reviewed selected source fdac75a; prior provenance coverage is preserved and browser timeline/gap cases are hardened.",
+      "AGENTS.md deployment/branch instructions are not imported; original user restrictions govern this separate integrated research branch.",
+      "Strict disposition binds real previous/remote/retained/selected Git commits, complete reviewed path coverage and current local source. Future watched drift still requires review."
+    ],
+    "integrationMode": "SELECTIVE_WITH_EXCLUSIONS",
+    "upstreamFullyIntegrated": false
   },
   "integration": {
     "repository": "rownlvh8875-coder/openpilot",
@@ -256,6 +264,42 @@
       "source-bound S1",
       "real S2A hardware PASS before S2B execution tooling",
       "S4B readiness and explicit hardware authorization"
+    ]
+  },
+  "selectiveUpstreamReview20260908": {
+    "integratedHeadAtReviewStart": "cbce1250f5e58302844bfeb03c4e1de9a5a2e6b3",
+    "previousReviewedUpstreamHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+    "reviewedUpstreamHead": "b7ab68addc29c3b9dc8f02023de36dba7109ed8c",
+    "retainedSourceHead": "8997be8b7cbc9f8b978ef942b7c9d577bf76f790",
+    "selectedSourceHead": "fdac75aedb7afe280cd67590fd02f693a4eb72d5",
+    "dispositionRecord": "config/egpu_integrated_upstream_disposition.json",
+    "reviewDocument": "docs/egpu_integrated/UPSTREAM_DISPOSITION_20260908.md",
+    "reviewedDeltaPathCount": 21,
+    "selectedRadarPaths": 6,
+    "retainedTeslaPaths": 14,
+    "retainedInstructionPaths": 1,
+    "reviewStatus": "REVIEWED_WITH_EXCLUSIONS",
+    "verificationScope": "WATCHED_BOUNDARIES_ONLY",
+    "upstreamFullyIntegrated": false,
+    "newWatchedTrees": [
+      "openpilot/selfdrive/controls",
+      "panda/board",
+      "tools/carrot_route_vault"
+    ],
+    "controlPathChanged": false,
+    "serviceDeploymentPerformed": false,
+    "actualHardwareValidation": false,
+    "teslaFixesIntegrated": false,
+    "controlAuthorization": false,
+    "publicRoadAuthorization": false,
+    "validationScope": [
+      "complete hardware-free integrated suite",
+      "29 synthetic fault scenarios",
+      "committed review bundle CLI",
+      "source disposition mutation/absence regressions",
+      "route viewer tests",
+      "desktop continuity/graph calculations",
+      "browser-logic timeline and graph regressions without native rendering"
     ]
   }
 }

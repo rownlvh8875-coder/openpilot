@@ -39,6 +39,13 @@ jobs:
       - name: Install locked NumPy for Carrot cut-out regression
         run: python -m pip install --disable-pip-version-check --no-deps numpy==2.4.3
 
+      - name: Install offline route viewer test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.2 aiohttp==3.13.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Compile integrated Python sources
         run: |
           python -m py_compile \
@@ -76,11 +83,17 @@ jobs:
             tools/egpu_integrated_review_bundle.py \
             tools/egpu_integrated_source_compat.py \
             tools/carrot_route_vault/build_bundle.py \
+            tools/carrot_route_vault/viewer.py \
             openpilot/selfdrive/carrot/radar/tools/radar_web_export.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
       - name: Verify modeld patch restores reviewed Carrot source
         run: python tools/apply_egpu_integrated_modeld_patch.py
+
+      - name: Fetch reviewed upstream objects for source tests
+        # Selective integration does not make the excluded upstream commits ancestors.
+        # Fetch objects only; keep checkout and the later live-upstream gate unchanged.
+        run: git fetch --no-tags https://github.com/ajouatom/openpilot.git b7ab68addc29c3b9dc8f02023de36dba7109ed8c
 
       - name: Run hardware-free integrated runtime tests
         env:
@@ -167,6 +180,21 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: python tools/egpu_integrated_fault_injection.py --all
+
+      - name: Verify offline route viewer regressions
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        # These pure tests use local fixtures only; repository conftest starts device/Params fixtures.
+        run: python -m pytest -q --noconftest -o addopts= -p no:cacheprovider tools/carrot_route_vault/tests
+
+      - name: Verify desktop radar continuity and graph calculations
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        # Exercise the shared calculations without constructing the native desktop UI.
+        run: python -m pytest -q --noconftest -o addopts= -p no:cacheprovider openpilot/selfdrive/carrot/tests/test_radar_lead_simulator.py -k 'continuity or graph'
+
+      - name: Verify radar browser timeline and graph behavior
+        run: node --test tools/carrot_route_vault/tests/test_radar_view.mjs
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
