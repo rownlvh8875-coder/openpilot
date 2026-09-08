@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrated eGPU S2A telemetry-only evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "stage", "sourceHead", "sourceBranch", "legs",
+    "observerAuthorization", "shadowAuthorization", "controlAuthorization", "publicRoadAuthorization"
+  ],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "stage": {"const": "S2A_TELEMETRY_ONLY_EVIDENCE"},
+    "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sourceBranch": {"type": "string", "minLength": 1},
+    "observerAuthorization": {"const": false},
+    "shadowAuthorization": {"const": false},
+    "controlAuthorization": {"const": false},
+    "publicRoadAuthorization": {"const": false},
+    "legs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"],
+      "properties": {
+        "S2A_OFF_BEFORE": {"$ref": "#/$defs/leg"},
+        "S2A_TELEMETRY_ON": {"$ref": "#/$defs/leg"},
+        "S2A_OFF_AFTER": {"$ref": "#/$defs/leg"}
+      }
+    }
+  },
+  "$defs": {
+    "leg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "leg", "sourceHead", "sourceBranch", "samples", "p50ModelExecutionMs", "p95ModelExecutionMs",
+        "p99ModelExecutionMs", "maxModelExecutionMs", "frameGapCount", "fallbackCount", "guardViolationCount",
+        "telemetryStateFresh", "hardwareSamples", "hardwareValidSamples", "hardwareErrorSamples", "supplyFaultSamples",
+        "p95HardwareSampleDurationMs", "maxHardwareSampleDurationMs", "maxGpuTempC", "maxMemoryTempC", "maxPowerDrawW"
+      ],
+      "properties": {
+        "leg": {"type": "string", "enum": ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"]},
+        "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "sourceBranch": {"type": "string", "minLength": 1},
+        "samples": {"type": "integer", "minimum": 0},
+        "p50ModelExecutionMs": {"type": "number", "minimum": 0},
+        "p95ModelExecutionMs": {"type": "number", "minimum": 0},
+        "p99ModelExecutionMs": {"type": "number", "minimum": 0},
+        "maxModelExecutionMs": {"type": "number", "minimum": 0},
+        "frameGapCount": {"type": "integer", "minimum": 0},
+        "fallbackCount": {"type": "integer", "minimum": 0},
+        "guardViolationCount": {"type": "integer", "minimum": 0},
+        "telemetryStateFresh": {"type": ["boolean", "null"]},
+        "hardwareSamples": {"type": "integer", "minimum": 0},
+        "hardwareValidSamples": {"type": "integer", "minimum": 0},
+        "hardwareErrorSamples": {"type": "integer", "minimum": 0},
+        "supplyFaultSamples": {"type": "integer", "minimum": 0},
+        "p95HardwareSampleDurationMs": {"type": "number", "minimum": 0},
+        "maxHardwareSampleDurationMs": {"type": "number", "minimum": 0},
+        "maxGpuTempC": {"type": ["number", "null"]},
+        "maxMemoryTempC": {"type": ["number", "null"]},
+        "maxPowerDrawW": {"type": ["number", "null"]}
+      }
+    }
+  }
+}

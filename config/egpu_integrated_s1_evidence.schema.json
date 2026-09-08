@@ -3,8 +3,14 @@
   "title": "Integrated eGPU S1 observer evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["legs"],
+  "required": ["schemaVersion", "stage", "sourceHead", "sourceBranch", "legs", "controlAuthorization", "publicRoadAuthorization"],
   "properties": {
+    "schemaVersion": {"const": 2},
+    "stage": {"const": "S1_OBSERVER_EVIDENCE"},
+    "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sourceBranch": {"type": "string", "minLength": 1},
+    "controlAuthorization": {"const": false},
+    "publicRoadAuthorization": {"const": false},
     "legs": {
       "type": "object",
       "additionalProperties": false,
@@ -21,20 +27,15 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "leg",
-        "samples",
-        "p50ModelExecutionMs",
-        "p95ModelExecutionMs",
-        "p99ModelExecutionMs",
-        "maxModelExecutionMs",
-        "frameGapCount",
-        "fallbackCount",
-        "guardViolationCount",
-        "observerWriteErrors",
-        "observerStateFresh"
+        "leg", "sourceHead", "sourceBranch", "samples",
+        "p50ModelExecutionMs", "p95ModelExecutionMs", "p99ModelExecutionMs",
+        "maxModelExecutionMs", "frameGapCount", "fallbackCount",
+        "guardViolationCount", "observerWriteErrors", "observerStateFresh"
       ],
       "properties": {
         "leg": {"type": "string", "enum": ["S1_OFF_BEFORE", "S1_ON", "S1_OFF_AFTER"]},
+        "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "sourceBranch": {"type": "string", "minLength": 1},
         "samples": {"type": "integer", "minimum": 0},
         "p50ModelExecutionMs": {"type": "number", "minimum": 0},
         "p95ModelExecutionMs": {"type": "number", "minimum": 0},
