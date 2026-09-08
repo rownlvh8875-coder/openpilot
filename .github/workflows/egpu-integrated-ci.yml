@@ -15,6 +15,7 @@ on:
       - dev-integrated-model-contracts
       - dev-integrated-provenance-fault-review-20260908
       - dev-integrated-offline-review-bundle-20260908
+      - dev-integrated-paired-input-adapter-20260908
   pull_request:
     branches:
       - carrot-wip
@@ -80,6 +81,7 @@ jobs:
             tools/egpu_integrated_fault_injection.py \
             tools/egpu_integrated_guardian_replay.py \
             tools/egpu_integrated_review_queue.py \
+            tools/egpu_integrated_paired_input_adapter.py \
             tools/egpu_integrated_review_bundle.py \
             tools/egpu_integrated_source_compat.py \
             tools/carrot_route_vault/build_bundle.py \
@@ -116,6 +118,7 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_guardian_replay_faults \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_offline_integrity \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_paired_input_adapter \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_bundle \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_model_contract
 
@@ -301,6 +304,7 @@ jobs:
             Path('tools/egpu_integrated_fault_injection.py'),
             Path('tools/egpu_integrated_guardian_replay.py'),
             Path('tools/egpu_integrated_review_queue.py'),
+            Path('tools/egpu_integrated_paired_input_adapter.py'),
             Path('tools/egpu_integrated_review_bundle.py'),
           ]
           forbidden_modules = (
