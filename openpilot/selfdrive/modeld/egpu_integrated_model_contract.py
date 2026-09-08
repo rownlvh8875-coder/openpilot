@@ -11,7 +11,7 @@ publication occurs here.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
@@ -24,7 +24,6 @@ from openpilot.selfdrive.modeld.egpu_integrated_model_slots import (
   ModelArtifact,
   ModelSlot,
   ModelSlotRegistry,
-  SLOT_EGPU,
   SLOT_QCOM,
   egpu_slot_from_carrot_manifest,
   registry_from_dict,
@@ -33,7 +32,7 @@ from openpilot.selfdrive.modeld.egpu_integrated_model_slots import (
 
 SCHEMA_VERSION = 1
 EXPECTED_BRANCH = "carrot-wip-integrated-v6"
-DEFAULT_QCOM_POINTER = Path("openpilot/selfdrive/modeld/models/driving_supercombo.onnx")
+DEFAULT_QCOM_POINTER = "openpilot/selfdrive/modeld/models/driving_supercombo.onnx"
 INTERFACE_PATHS = (
   "openpilot/selfdrive/modeld/modeld.py",
   "openpilot/selfdrive/modeld/fill_model_msg.py",
@@ -55,18 +54,13 @@ class SourceBinding:
       raise ValueError("source head must be a 40-character lowercase git SHA")
     if not self.branch or any(c.isspace() for c in self.branch):
       raise ValueError("source branch must be a non-empty token")
-    if not self.interface_blobs:
-      raise ValueError("interface blobs are required")
     paths = [path for path, _ in self.interface_blobs]
-    if len(paths) != len(set(paths)):
-      raise ValueError("duplicate interface path")
+    if len(paths) != len(set(paths)) or set(paths) != set(INTERFACE_PATHS):
+      raise ValueError("source binding must contain each reviewed interface path exactly once")
     for path, blob in self.interface_blobs:
       if path not in INTERFACE_PATHS or not HEAD_RE.fullmatch(blob):
         raise ValueError("invalid interface blob binding")
-    if set(paths) != set(INTERFACE_PATHS):
-      raise ValueError("all reviewed interface paths must be bound")
-    expected = interface_fingerprint(dict(self.interface_blobs))
-    if self.interface_fingerprint != expected:
+    if self.interface_fingerprint != interface_fingerprint(dict(self.interface_blobs)):
       raise ValueError("interface fingerprint mismatch")
 
 
@@ -87,10 +81,8 @@ class ModelPairContract:
     self.registry.validate()
     if self.registry.egpu is None:
       raise ValueError("baseline contract requires one pinned eGPU BIG slot")
-    if self.registry.qcom.artifact is None:
-      raise ValueError("QCOM slot must bind the source LFS artifact")
-    if not self.registry.qcom.builtin:
-      raise ValueError("QCOM slot must remain builtin")
+    if self.registry.qcom.artifact is None or not self.registry.qcom.builtin:
+      raise ValueError("QCOM slot must be builtin and bind the source LFS artifact")
     if self.registry.fallback_slot != SLOT_QCOM:
       raise ValueError("fallback slot must remain QCOM")
     if self.registry.qcom.nominal_hz != self.registry.egpu.nominal_hz:
@@ -114,33 +106,29 @@ def _git(repo: Path, *args: str) -> str:
   return p.stdout.strip()
 
 
+def interface_fingerprint(blobs: Mapping[str, str]) -> str:
+  if set(blobs) != set(INTERFACE_PATHS):
+    raise ValueError("interface fingerprint requires the complete interface path set")
+  canonical = json.dumps({path: blobs[path] for path in sorted(blobs)}, sort_keys=True, separators=(",", ":"))
+  return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def git_source_binding(repo: str | Path) -> SourceBinding:
   root = Path(repo).resolve()
   head = _git(root, "rev-parse", "HEAD")
   branch = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
   blobs = tuple((path, _git(root, "rev-parse", f"HEAD:{path}")) for path in INTERFACE_PATHS)
-  binding = SourceBinding(
-    head=head,
-    branch=branch,
-    interface_blobs=blobs,
-    interface_fingerprint=interface_fingerprint(dict(blobs)),
-  )
+  binding = SourceBinding(head=head, branch=branch, interface_blobs=blobs,
+                          interface_fingerprint=interface_fingerprint(dict(blobs)))
   binding.validate()
   return binding
 
 
-def interface_fingerprint(blobs: Mapping[str, str]) -> str:
-  canonical = json.dumps({path: blobs[path] for path in sorted(blobs)}, sort_keys=True, separators=(",", ":"))
-  return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def parse_git_lfs_pointer(path: str | Path) -> ModelArtifact:
-  pointer = Path(path)
-  text = pointer.read_text(encoding="utf-8")
+def parse_git_lfs_pointer_text(text: str, *, file_name: str) -> ModelArtifact:
   values: dict[str, str] = {}
   lines = [line.strip() for line in text.splitlines() if line.strip()]
   if not lines or lines[0] != "version https://git-lfs.github.com/spec/v1":
-    raise ValueError("QCOM model path is not a Git LFS v1 pointer")
+    raise ValueError("QCOM model git object is not a Git LFS v1 pointer")
   for line in lines[1:]:
     if line.startswith("oid sha256:"):
       values["sha256"] = line.removeprefix("oid sha256:")
@@ -153,9 +141,16 @@ def parse_git_lfs_pointer(path: str | Path) -> ModelArtifact:
     size = int(values.get("size", ""))
   except ValueError:
     raise ValueError("invalid/missing LFS size") from None
-  artifact = ModelArtifact(file_name=pointer.name, size=size, sha256=sha)
+  artifact = ModelArtifact(file_name=Path(file_name).name, size=size, sha256=sha)
   artifact.validate()
   return artifact
+
+
+def git_lfs_artifact(repo: str | Path, *, path: str = DEFAULT_QCOM_POINTER) -> ModelArtifact:
+  """Read the committed LFS pointer, independent of worktree smudge/materialization."""
+  root = Path(repo).resolve()
+  text = _git(root, "show", f"HEAD:{path}")
+  return parse_git_lfs_pointer_text(text, file_name=Path(path).name)
 
 
 def _qcom_slot(artifact: ModelArtifact, *, generation: int, nominal_hz: float) -> ModelSlot:
@@ -185,7 +180,7 @@ def build_contract(
   *,
   generation: int = 0,
   big_manifest: BigModelManifest | Mapping[str, Any] | None = None,
-  qcom_pointer: str | Path | None = None,
+  qcom_path: str = DEFAULT_QCOM_POINTER,
   nominal_hz: float = 20.0,
   expected_branch: str | None = EXPECTED_BRANCH,
 ) -> ModelPairContract:
@@ -193,7 +188,7 @@ def build_contract(
   source = git_source_binding(root)
   if expected_branch is not None and source.branch != expected_branch:
     raise ValueError(f"unexpected source branch: {source.branch}")
-  qcom_artifact = parse_git_lfs_pointer(root / (qcom_pointer or DEFAULT_QCOM_POINTER))
+  qcom_artifact = git_lfs_artifact(root, path=qcom_path)
   manifest = big_manifest or _default_big_manifest()
   if not isinstance(manifest, BigModelManifest):
     manifest = BigModelManifest.from_dict(dict(manifest))
@@ -203,38 +198,6 @@ def build_contract(
   draft = ModelPairContract(source=source, generation=generation, registry=registry)
   draft.validate()
   return ModelPairContract(source=source, generation=generation, registry=registry, contract_id=contract_id(draft))
-
-
-def contract_payload(contract: ModelPairContract, *, include_contract_id: bool = True) -> dict[str, Any]:
-  contract.validate()
-  payload = {
-    "schemaVersion": contract.schema_version,
-    "source": {
-      "head": contract.source.head,
-      "branch": contract.source.branch,
-      "interfaceBlobs": [{"path": path, "blob": blob} for path, blob in contract.source.interface_blobs],
-      "interfaceFingerprint": contract.source.interface_fingerprint,
-    },
-    "generation": contract.generation,
-    "registry": registry_to_dict(contract.registry),
-    "policy": {
-      "oneBigOneSmallBaseline": True,
-      "runtimeHotSwap": False,
-      "crossGenerationMix": False,
-      "fallbackSlot": SLOT_QCOM,
-      "controlAuthorization": False,
-      "publicRoadAuthorization": False,
-    },
-  }
-  if include_contract_id:
-    payload["contractId"] = contract.contract_id or contract_id(contract)
-  return payload
-
-
-def contract_id(contract: ModelPairContract) -> str:
-  payload = contract_payload_unchecked(contract)
-  canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
-  return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def contract_payload_unchecked(contract: ModelPairContract) -> dict[str, Any]:
@@ -257,6 +220,18 @@ def contract_payload_unchecked(contract: ModelPairContract) -> dict[str, Any]:
       "publicRoadAuthorization": False,
     },
   }
+
+
+def contract_id(contract: ModelPairContract) -> str:
+  canonical = json.dumps(contract_payload_unchecked(contract), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+  return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def contract_payload(contract: ModelPairContract) -> dict[str, Any]:
+  contract.validate()
+  payload = contract_payload_unchecked(contract)
+  payload["contractId"] = contract.contract_id or contract_id(contract)
+  return payload
 
 
 def contract_from_dict(value: Any) -> ModelPairContract:
