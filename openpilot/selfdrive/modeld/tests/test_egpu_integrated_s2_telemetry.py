@@ -6,27 +6,42 @@ from tools.egpu_integrated_s2b_plan import build_s2b_plan
 
 BRANCH = "carrot-wip-integrated-v6"
 HEAD = "abc"
+DIGEST = "a" * 64
+
+
+def binding(stage, next_gate, *, head=HEAD, branch=BRANCH):
+  return {
+    "stage": "COMMISSIONING_QUALIFICATION_BINDING",
+    "qualificationStage": stage,
+    "status": "PASS",
+    "nextGate": next_gate,
+    "sourceHead": head,
+    "sourceBranch": branch,
+    "evidenceSha256": DIGEST,
+    "policySha256": DIGEST,
+    "qualificationSha256": DIGEST,
+    "recomputedExactMatch": True,
+    "controlAuthorization": False,
+    "publicRoadAuthorization": False,
+  }
 
 
 class TestS2APlan(unittest.TestCase):
   def s1(self):
     return {
-      "status": "PASS",
-      "nextGate": "S2_TELEMETRY_PLAN_ONLY",
-      "controlAuthorization": False,
-      "sourceHead": HEAD,
-      "sourceBranch": BRANCH,
+      "status": "PASS", "nextGate": "S2_TELEMETRY_PLAN_ONLY", "controlAuthorization": False,
+      "sourceHead": HEAD, "sourceBranch": BRANCH,
     }
 
+  def s1_binding(self):
+    return binding("S1_OBSERVER_QUALIFICATION", "S2_TELEMETRY_PLAN_ONLY")
+
   def test_s1_pass_opens_s2a_plan_only(self):
-    plan = build_s2a_plan(self.s1(), expected_head=HEAD)
+    plan = build_s2a_plan(self.s1(), self.s1_binding(), expected_head=HEAD)
     self.assertEqual(plan["stage"], "S2A_TELEMETRY_ONLY_PLAN")
     self.assertEqual(plan["sourceHead"], HEAD)
     self.assertEqual(plan["sourceBranch"], BRANCH)
-    self.assertEqual(
-      [x["id"] for x in plan["sequence"]],
-      ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"],
-    )
+    self.assertEqual([x["id"] for x in plan["sequence"]], ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"])
     self.assertTrue(plan["sequence"][1]["telemetry"])
     self.assertFalse(plan["sequence"][1]["observer"])
     self.assertFalse(plan["authorizations"]["telemetryEnableAuthorization"])
@@ -34,17 +49,21 @@ class TestS2APlan(unittest.TestCase):
   def test_s1_hold_rejected(self):
     value = self.s1(); value["status"] = "HOLD"
     with self.assertRaises(ValueError):
-      build_s2a_plan(value, expected_head=HEAD)
+      build_s2a_plan(value, self.s1_binding(), expected_head=HEAD)
 
-  def test_s1_head_mismatch_rejected(self):
+  def test_s1_source_mismatch_rejected(self):
     value = self.s1(); value["sourceHead"] = "different"
     with self.assertRaises(ValueError):
-      build_s2a_plan(value, expected_head=HEAD)
+      build_s2a_plan(value, self.s1_binding(), expected_head=HEAD)
 
-  def test_s1_branch_mismatch_rejected(self):
-    value = self.s1(); value["sourceBranch"] = "other"
+  def test_binding_source_mismatch_rejected(self):
     with self.assertRaises(ValueError):
-      build_s2a_plan(value, expected_head=HEAD)
+      build_s2a_plan(self.s1(), self.s1_binding() | {"sourceHead": "different"}, expected_head=HEAD)
+
+  def test_binding_digest_missing_rejected(self):
+    value = self.s1_binding(); value["policySha256"] = None
+    with self.assertRaises(ValueError):
+      build_s2a_plan(self.s1(), value, expected_head=HEAD)
 
 
 class TestS2AQualification(unittest.TestCase):
@@ -156,23 +175,17 @@ class TestS2BPlan(unittest.TestCase):
       "sourceHead": HEAD, "sourceBranch": BRANCH,
     }
 
-  def s2a(self):
-    return {
-      "status": "PASS",
-      "nextGate": "S2B_OBSERVER_TELEMETRY_COEXISTENCE_PLAN_ONLY",
-      "controlAuthorization": False,
-    }
+  def s1_binding(self):
+    return binding("S1_OBSERVER_QUALIFICATION", "S2_TELEMETRY_PLAN_ONLY")
 
-  def evidence(self):
-    return {
-      "stage": "S2A_TELEMETRY_ONLY_EVIDENCE",
-      "sourceHead": HEAD,
-      "sourceBranch": BRANCH,
-      "controlAuthorization": False,
-    }
+  def s2a(self):
+    return {"status": "PASS", "nextGate": "S2B_OBSERVER_TELEMETRY_COEXISTENCE_PLAN_ONLY", "controlAuthorization": False}
+
+  def s2a_binding(self):
+    return binding("S2A_TELEMETRY_ONLY_QUALIFICATION", "S2B_OBSERVER_TELEMETRY_COEXISTENCE_PLAN_ONLY")
 
   def test_both_pass_open_plan_only(self):
-    plan = build_s2b_plan(self.s1(), self.s2a(), self.evidence(), expected_head=HEAD)
+    plan = build_s2b_plan(self.s1(), self.s1_binding(), self.s2a(), self.s2a_binding(), expected_head=HEAD)
     self.assertEqual(plan["stage"], "S2B_OBSERVER_TELEMETRY_COEXISTENCE_PLAN_ONLY")
     self.assertEqual(plan["sourceHead"], HEAD)
     self.assertTrue(all(x["observer"] for x in plan["sequence"]))
@@ -182,17 +195,15 @@ class TestS2BPlan(unittest.TestCase):
   def test_s2a_hold_rejected(self):
     value = self.s2a(); value["status"] = "HOLD"
     with self.assertRaises(ValueError):
-      build_s2b_plan(self.s1(), value, self.evidence(), expected_head=HEAD)
+      build_s2b_plan(self.s1(), self.s1_binding(), value, self.s2a_binding(), expected_head=HEAD)
 
-  def test_s1_source_mismatch_rejected(self):
-    value = self.s1(); value["sourceHead"] = "different"
+  def test_s1_binding_source_mismatch_rejected(self):
     with self.assertRaises(ValueError):
-      build_s2b_plan(value, self.s2a(), self.evidence(), expected_head=HEAD)
+      build_s2b_plan(self.s1(), self.s1_binding() | {"sourceHead": "different"}, self.s2a(), self.s2a_binding(), expected_head=HEAD)
 
-  def test_s2a_evidence_source_mismatch_rejected(self):
-    evidence = self.evidence(); evidence["sourceHead"] = "different"
+  def test_s2a_binding_source_mismatch_rejected(self):
     with self.assertRaises(ValueError):
-      build_s2b_plan(self.s1(), self.s2a(), evidence, expected_head=HEAD)
+      build_s2b_plan(self.s1(), self.s1_binding(), self.s2a(), self.s2a_binding() | {"sourceHead": "different"}, expected_head=HEAD)
 
 
 if __name__ == "__main__":
