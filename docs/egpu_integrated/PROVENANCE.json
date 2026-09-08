@@ -1,11 +1,23 @@
 {
-  "schemaVersion": 1,
-  "capturedDate": "2026-09-07",
+  "schemaVersion": 2,
+  "capturedDate": "2026-09-08",
   "upstream": {
     "repository": "ajouatom/openpilot",
     "branch": "carrot-wip",
-    "reviewedHead": "6f4c00e625dc3d41d3776427a272a5c3fed75e6c",
-    "reviewedModeldBlob": "e4de3eb2236f6bb0c54c87666099147311602f4f"
+    "reviewedHead": "e8937726af50ac57681b560015076a5b596e960d",
+    "previousReviewedHead": "6f4c00e625dc3d41d3776427a272a5c3fed75e6c",
+    "reviewedModeldBlob": "e4de3eb2236f6bb0c54c87666099147311602f4f",
+    "reviewedSeries": [
+      "bd2fd192e71de8417afcc5f2d8fa3e155a4d2177",
+      "00fe08f113b500c76a60a7a0efd562d46a23d92e",
+      "e8937726af50ac57681b560015076a5b596e960d"
+    ],
+    "reviewNotes": [
+      "All eGPU-critical blobs remained identical to the previous reviewed baseline.",
+      "log.capnp merged local H1 Event slots with upstream RadarState cutOutTime/cutOutConfidence fields in disjoint structs/ordinals.",
+      "longitudinal_planner.py merged local H1 observation-only instrumentation with upstream cutout_relief_enabled MPC gating in disjoint hunks.",
+      "Upstream cut-out relief changes longitudinal MPC future headway behavior and had replay/focused tests upstream, but upstream documentation states no closed-loop vehicle test was performed for that change. Integrated hardware commissioning remains required before vehicle use."
+    ]
   },
   "integration": {
     "repository": "rownlvh8875-coder/openpilot",
@@ -30,6 +42,15 @@
     "manualConflictResolution": {
       "path": "openpilot/selfdrive/controls/plannerd.py",
       "resolution": "preserve both latest Carrot StoppingLeadFilter and local v6 H1Observability imports because both are used"
+    },
+    "upstreamRebase20260908": {
+      "upstreamHead": "e8937726af50ac57681b560015076a5b596e960d",
+      "reviewedOverlapPaths": [
+        "openpilot/cereal/log.capnp",
+        "openpilot/selfdrive/controls/lib/longitudinal_planner.py"
+      ],
+      "semanticConflicts": false,
+      "mergeVerification": "both local-v6 and upstream cut-out invariants are asserted by hardware-free regression tests"
     }
   },
   "safetyBoundary": {
@@ -39,6 +60,7 @@
     "pandaSafetyModified": false,
     "actuatorLimitsModified": false,
     "s4bMaxHz": 5.0,
-    "s4bStationaryOnly": true
+    "s4bStationaryOnly": true,
+    "closedLoopVehicleValidationOfUpstreamCutoutByThisProject": false
   }
 }
