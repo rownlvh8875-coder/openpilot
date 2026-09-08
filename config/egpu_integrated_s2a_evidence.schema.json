@@ -3,10 +3,19 @@
   "title": "Integrated eGPU S2A telemetry-only evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["sourceHead", "sourceBranch", "legs"],
+  "required": [
+    "schemaVersion", "stage", "sourceHead", "sourceBranch", "legs",
+    "observerAuthorization", "shadowAuthorization", "controlAuthorization", "publicRoadAuthorization"
+  ],
   "properties": {
-    "sourceHead": {"type": "string", "minLength": 1},
+    "schemaVersion": {"const": 2},
+    "stage": {"const": "S2A_TELEMETRY_ONLY_EVIDENCE"},
+    "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "sourceBranch": {"type": "string", "minLength": 1},
+    "observerAuthorization": {"const": false},
+    "shadowAuthorization": {"const": false},
+    "controlAuthorization": {"const": false},
+    "publicRoadAuthorization": {"const": false},
     "legs": {
       "type": "object",
       "additionalProperties": false,
@@ -30,7 +39,7 @@
       ],
       "properties": {
         "leg": {"type": "string", "enum": ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"]},
-        "sourceHead": {"type": "string", "minLength": 1},
+        "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "sourceBranch": {"type": "string", "minLength": 1},
         "samples": {"type": "integer", "minimum": 0},
         "p50ModelExecutionMs": {"type": "number", "minimum": 0},
