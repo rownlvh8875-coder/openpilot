@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrated eGPU offline Guardian replay row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sourceHead", "sourceBranch", "active", "shadow", "scene"],
+  "properties": {
+    "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sourceBranch": {"type": "string", "minLength": 1},
+    "processId": {"type": "string", "minLength": 1},
+    "restartBoundary": {"type": "boolean"},
+    "active": {"$ref": "#/$defs/action"},
+    "shadow": {"$ref": "#/$defs/action"},
+    "scene": {"$ref": "#/$defs/scene"},
+    "hardware": {"type": ["object", "null"]},
+    "fault": {"anyOf": [{"$ref": "#/$defs/fault"}, {"type": "null"}]}
+  },
+  "$defs": {
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameId", "frameAge", "modelExecutionMs", "curvature", "acceleration", "shouldStop", "backend", "timestampMonoS"],
+      "properties": {
+        "frameId": {"type": "integer", "minimum": 0},
+        "frameAge": {"type": "integer", "minimum": 0},
+        "modelExecutionMs": {"type": "number", "minimum": 0},
+        "curvature": {"type": "number"},
+        "acceleration": {"type": "number"},
+        "shouldStop": {"type": "boolean"},
+        "backend": {"type": "string", "enum": ["egpu", "qcom"]},
+        "timestampMonoS": {"type": ["number", "null"]}
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameId", "timestampMonoS", "speedMps", "standstill", "leadPresent", "leadDistanceM", "leadRelSpeedMps"],
+      "properties": {
+        "frameId": {"type": "integer", "minimum": 0},
+        "timestampMonoS": {"type": "number"},
+        "speedMps": {"type": "number", "minimum": 0},
+        "standstill": {"type": "boolean"},
+        "leadPresent": {"type": ["boolean", "null"]},
+        "leadDistanceM": {"type": ["number", "null"]},
+        "leadRelSpeedMps": {"type": ["number", "null"]},
+        "laneChangeState": {"type": ["string", "null"]},
+        "leadCutOutTimeS": {"type": ["number", "null"]},
+        "leadCutOutConfidence": {"type": ["number", "null"], "minimum": 0.0, "maximum": 1.0}
+      }
+    },
+    "fault": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frameId", "attemptedBackend", "activeBackend", "usbGpuActive", "startupFailed"],
+      "properties": {
+        "frameId": {"type": "integer", "minimum": 0},
+        "attemptedBackend": {"type": "string", "enum": ["egpu", "qcom"]},
+        "activeBackend": {"type": "string", "enum": ["egpu", "qcom"]},
+        "usbGpuActive": {"type": "boolean"},
+        "startupFailed": {"type": "boolean"},
+        "fallbackObserved": {"type": "boolean"},
+        "modelOutputPresent": {"type": "boolean"},
+        "outputFrameId": {"type": ["integer", "null"], "minimum": 0},
+        "modelOutputFinite": {"type": ["boolean", "null"]},
+        "hardwarePresent": {"type": ["boolean", "null"]},
+        "compiledBig": {"type": ["boolean", "null"]},
+        "telemetryValid": {"type": ["boolean", "null"]},
+        "telemetryFresh": {"type": ["boolean", "null"]},
+        "supplyFault": {"type": "boolean"},
+        "pcieReady": {"type": ["boolean", "null"]},
+        "usbSpeedMbps": {"type": ["integer", "null"], "minimum": 0},
+        "frameAge": {"type": ["integer", "null"], "minimum": 0},
+        "modelExecutionMs": {"type": ["number", "null"], "minimum": 0}
+      }
+    }
+  }
+}

@@ -747,6 +747,8 @@ struct RadarState @0x9a185389d6fdd05f {
     aLead @5 :Float32;
     jLead @16 :Float32;
     score @17 :Float32;
+    cutOutTime @18 :Float32;       # predicted body clearance, seconds; 0 = inactive
+    cutOutConfidence @19 :Float32; # confirmed/ramped future headway relief, 0..1
   }
 
   deprecated :group {
@@ -2698,8 +2700,8 @@ struct Event {
     carrotMan @107 :Custom.CarrotMan;
     carrotNavi @108 :Custom.CarrotNaviState;
     carrotNaviMedia @109 :Custom.CarrotNaviMedia;
-    customReserved3 @110 :Custom.CustomReserved3;
-    customReserved4 @111 :Custom.CustomReserved4;
+    carrotH1ReplayTrace @110 :Custom.CarrotH1ReplayTrace;
+    carrotH1ConfigSnapshot @111 :Custom.CarrotH1ConfigSnapshot;
     customReserved5 @112 :Custom.CustomReserved5;
     customReserved6 @113 :Custom.CustomReserved6;
     customReserved7 @114 :Custom.CustomReserved7;

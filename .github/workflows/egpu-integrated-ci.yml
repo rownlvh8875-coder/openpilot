@@ -4,9 +4,24 @@ on:
   push:
     branches:
       - carrot-wip-integrated-v0
+      - carrot-wip-integrated-v6
+      - dev-integrated-transition-safety
+      - dev-integrated-s1-commissioning
+      - dev-integrated-s2-telemetry
+      - dev-integrated-commissioning-ledger
+      - dev-integrated-s4b-entry-gate
+      - dev-integrated-carrot-e893-rebase
+      - dev-integrated-guardian-replay-faults-e893
+      - dev-integrated-model-contracts
+      - dev-integrated-provenance-fault-review-20260908
+      - dev-integrated-offline-review-bundle-20260908
+      - dev-integrated-paired-input-adapter-20260908
+      - dev-integrated-evidence-discovery-20260908
   pull_request:
     branches:
       - carrot-wip
+      - carrot-wip-integrated-v0
+      - carrot-wip-integrated-v6
 
 permissions:
   contents: read
@@ -23,6 +38,16 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install locked NumPy for Carrot cut-out regression
+        run: python -m pip install --disable-pip-version-check --no-deps numpy==2.4.3
+
+      - name: Install offline route viewer test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.2 aiohttp==3.13.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Compile integrated Python sources
         run: |
           python -m py_compile \
@@ -31,40 +56,394 @@ jobs:
             openpilot/selfdrive/modeld/egpu_hardware_telemetry.py \
             openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py \
             openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
+            openpilot/selfdrive/modeld/egpu_integrated_model_contract.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
+            openpilot/selfdrive/modeld/egpu_integrated_guardian_temporal.py \
+            openpilot/selfdrive/modeld/egpu_integrated_fault_state.py \
+            openpilot/selfdrive/controls/lib/longitudinal_cutout.py \
+            tools/egpu_integrated_model_contract.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
+            tools/egpu_integrated_install_preflight.py \
+            tools/egpu_integrated_live_provenance.py \
+            tools/egpu_integrated_transition_plan.py \
+            tools/egpu_integrated_postboot_verify.py \
+            tools/egpu_integrated_s1_plan.py \
+            tools/egpu_integrated_s1_qualification.py \
+            tools/egpu_integrated_s1_recorder.py \
+            tools/egpu_integrated_s1_build_evidence.py \
+            tools/egpu_integrated_s2a_plan.py \
+            tools/egpu_integrated_s2a_recorder.py \
+            tools/egpu_integrated_s2a_build_evidence.py \
+            tools/egpu_integrated_s2a_qualification.py \
+            tools/egpu_integrated_s2b_plan.py \
+            tools/egpu_integrated_qualification_binding.py \
+            tools/egpu_integrated_commissioning_ledger.py \
+            tools/egpu_integrated_s4b_readiness.py \
+            tools/egpu_integrated_fault_injection.py \
+            tools/egpu_integrated_guardian_replay.py \
+            tools/egpu_integrated_review_queue.py \
+            tools/egpu_integrated_paired_input_adapter.py \
+            tools/egpu_integrated_paired_evidence_discovery.py \
+            tools/egpu_integrated_review_bundle.py \
+            tools/egpu_integrated_source_compat.py \
+            tools/carrot_route_vault/build_bundle.py \
+            tools/carrot_route_vault/viewer.py \
+            openpilot/selfdrive/carrot/radar/tools/radar_web_export.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
       - name: Verify modeld patch restores reviewed Carrot source
         run: python tools/apply_egpu_integrated_modeld_patch.py
 
+      - name: Fetch reviewed upstream objects for source tests
+        # Selective integration does not make the excluded upstream commits ancestors.
+        # Fetch objects only; keep checkout and the later live-upstream gate unchanged.
+        run: git fetch --no-tags https://github.com/ajouatom/openpilot.git b7ab68addc29c3b9dc8f02023de36dba7109ed8c
+
       - name: Run hardware-free integrated runtime tests
         env:
           PYTHONPATH: ${{ github.workspace }}
-        run: python -m unittest -v openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime
+        run: |
+          python -m unittest -v \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_radar_provenance \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_carrot_cutout \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_telemetry \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_evidence \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_qualification_binding \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_guardian_replay_faults \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_offline_integrity \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_paired_input_adapter \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_paired_evidence_discovery \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_bundle \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_model_contract
 
-      - name: Verify parked probe has no control publication or manager registration
+      - name: Verify committed offline review bundle CLI
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+          from tools.egpu_integrated_fault_injection import fallback_fault, replay_row
+
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True).strip()
+          def cli(script, *args, expected=0):
+            result = subprocess.run([sys.executable, script, *map(str, args)], capture_output=True, text=True)
+            assert result.returncode == expected, result.stdout + result.stderr
+            return json.loads(result.stdout)
+
+          with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            rows = [replay_row(1, cutout_time=0.0, cutout_confidence=0.0),
+                    replay_row(2, stop_shadow=True, cutout_time=0.7, cutout_confidence=0.4),
+                    replay_row(3, active_backend='qcom', fault=fallback_fault(3)),
+                    replay_row(4, active_backend='qcom', fault=fallback_fault(4, outputFrameId=3))]
+            # Newly generated synthetic fixtures have no producer/hardware claim.
+            for row in rows:
+              row.update(sourceHead=head, sourceBranch=branch)
+            (directory / 'input.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows), encoding='utf-8')
+            cli('tools/egpu_integrated_model_contract.py', 'build', '--repo', '.', '--generation', '0',
+                '--expected-branch', branch, '--output', directory / 'contract.json')
+            tool = 'tools/egpu_integrated_review_bundle.py'
+            bundle = directory / 'bundle'
+            receipt = cli(tool, 'build', '--rows', directory / 'input.jsonl', '--contract', directory / 'contract.json',
+                          '--policy', 'config/egpu_integrated_review_policy.example.json', '--output', bundle,
+                          '--expected-source-head', head, '--expected-source-branch', branch, '--evidence-kind', 'synthetic')
+            # Preserve the creation receipt outside the bundle; do not read its ID from the manifest for verification.
+            (directory / 'receipt.json').write_text(json.dumps(receipt), encoding='utf-8')
+            verify_args = ('verify', '--bundle', bundle, '--expected-bundle-id', receipt['bundleId'],
+                           '--expected-source-head', head, '--expected-source-branch', branch)
+            verified = cli(tool, *verify_args)
+            assert verified['status'] == 'VERIFIED_OFFLINE_CONSISTENCY'
+            assert verified['evidenceKind'] == 'synthetic'
+            for name in ('controlAuthorization', 'runtimeActivationAuthorization', 'shadowExecutionAuthorization',
+                         'publicRoadAuthorization', 'hardwareValidationPerformed', 'commissioningEligible',
+                         'modelExecutionVerified', 'producerAssertionsVerified'):
+              assert verified[name] is False, name
+            events = [json.loads(line) for line in (bundle / 'events.jsonl').read_text().splitlines()]
+            assert events[1]['combinedReviewBucket'] == 'PRIORITY_REVIEW'
+            assert events[2]['fault']['sameFrameOutputPreserved'] is True
+            assert events[3]['combinedReviewBucket'] == 'ROOT_CAUSE'
+            assert json.loads((bundle / 'review-queue.json').read_text())['eventsRepresented'] == 4
+            (bundle / 'summary.json').write_bytes(b'{}\n')
+            assert cli(tool, *verify_args, expected=2)['status'] == 'HOLD'
+          print('committedOfflineReviewBundleCLI=PASS (synthetic build, recomputation, tamper rejection)')
+          PY
+
+      - name: Run synthetic fault-injection suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python tools/egpu_integrated_fault_injection.py --all
+
+      - name: Verify offline route viewer regressions
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        # These pure tests use local fixtures only; repository conftest starts device/Params fixtures.
+        run: python -m pytest -q --noconftest -o addopts= -p no:cacheprovider tools/carrot_route_vault/tests
+
+      - name: Verify desktop radar continuity and graph calculations
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        # Exercise the shared calculations without constructing the native desktop UI.
+        run: python -m pytest -q --noconftest -o addopts= -p no:cacheprovider openpilot/selfdrive/carrot/tests/test_radar_lead_simulator.py -k 'continuity or graph'
+
+      - name: Verify radar browser timeline and graph behavior
+        run: node --test tools/carrot_route_vault/tests/test_radar_view.mjs
+
+      - name: Verify current upstream Carrot integration boundary
+        run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
+
+      - name: Verify model contract layer cannot activate or load models
+        run: |
+          python - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+
+          files = [
+            Path('openpilot/selfdrive/modeld/egpu_integrated_model_contract.py'),
+            Path('tools/egpu_integrated_model_contract.py'),
+          ]
+          forbidden_names = {
+            'ensure_big_model', 'write_state', 'ModelState', 'Params', 'PubMaster',
+            'VisionIpcClient', 'Device',
+          }
+          forbidden_tokens = (
+            'UsbGpuActive', 'ChestnutActive', 'ChestnutModelError',
+            '.put_bool(', '.put(', 'managerState', "pm.send('modelV2'", "pm.send('carControl'",
+            'driving_tinygrad.pkl', 'big_driving_',
+          )
+          for path in files:
+            source = path.read_text(encoding='utf-8')
+            tree = ast.parse(source)
+            for node in ast.walk(tree):
+              if isinstance(node, (ast.Import, ast.ImportFrom)):
+                aliases = node.names
+                for alias in aliases:
+                  if alias.name in forbidden_names:
+                    raise SystemExit(f'forbidden model-runtime import in {path}: {alias.name}')
+              if isinstance(node, ast.Name) and node.id in forbidden_names:
+                raise SystemExit(f'forbidden model-runtime symbol in {path}: {node.id}')
+            for token in forbidden_tokens:
+              if token in source:
+                raise SystemExit(f'forbidden model activation/runtime token in {path}: {token}')
+
+          schema = json.loads(Path('config/egpu_integrated_model_contract.schema.json').read_text())
+          required = set(schema['required'])
+          props = set(schema['properties'])
+          if required != props:
+            raise SystemExit('model contract schema top-level required/properties mismatch')
+          if schema.get('additionalProperties') is not False:
+            raise SystemExit('model contract schema must reject unknown top-level fields')
+          policy = schema['properties']['policy']['properties']
+          expected_consts = {
+            'oneBigOneSmallBaseline': True,
+            'runtimeHotSwap': False,
+            'crossGenerationMix': False,
+            'fallbackSlot': 'qcom',
+            'controlAuthorization': False,
+            'publicRoadAuthorization': False,
+          }
+          for name, expected in expected_consts.items():
+            if policy.get(name, {}).get('const') != expected:
+              raise SystemExit(f'model contract schema policy drift: {name}')
+          print('modelContractRuntimeIsolation=PASS')
+          PY
+
+      - name: Verify plan, qualification, binding, and ledger tools are non-executing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          files = [
+            Path('tools/egpu_integrated_live_provenance.py'),
+            Path('tools/egpu_integrated_transition_plan.py'),
+            Path('tools/egpu_integrated_postboot_verify.py'),
+            Path('tools/egpu_integrated_install_preflight.py'),
+            Path('tools/egpu_integrated_s1_plan.py'),
+            Path('tools/egpu_integrated_s1_qualification.py'),
+            Path('tools/egpu_integrated_s1_build_evidence.py'),
+            Path('tools/egpu_integrated_s2a_plan.py'),
+            Path('tools/egpu_integrated_s2a_qualification.py'),
+            Path('tools/egpu_integrated_s2a_build_evidence.py'),
+            Path('tools/egpu_integrated_s2b_plan.py'),
+            Path('tools/egpu_integrated_qualification_binding.py'),
+            Path('tools/egpu_integrated_commissioning_ledger.py'),
+            Path('tools/egpu_integrated_s4b_readiness.py'),
+          ]
+          forbidden = (
+            'git switch', 'git checkout', 'git reset --hard', 'systemctl restart',
+            'sudo reboot', 'reboot -f', 'Params().put', 'Params().put_bool',
+            "pm.send('modelV2'", 'PubMaster(',
+          )
+          for path in files:
+            source = path.read_text(encoding='utf-8')
+            for token in forbidden:
+              if token in source:
+                raise SystemExit(f'forbidden mutating/control token in {path}: {token}')
+          print('planQualificationBindingLedgerVerification=PASS')
+          PY
+
+      - name: Verify offline Guardian replay and fault tools stay isolated
         run: |
           python - <<'PY'
           import ast
           from pathlib import Path
 
+          files = [
+            Path('openpilot/selfdrive/modeld/egpu_integrated_fault_state.py'),
+            Path('openpilot/selfdrive/modeld/egpu_integrated_guardian_temporal.py'),
+            Path('tools/egpu_integrated_fault_injection.py'),
+            Path('tools/egpu_integrated_guardian_replay.py'),
+            Path('tools/egpu_integrated_review_queue.py'),
+            Path('tools/egpu_integrated_paired_input_adapter.py'),
+            Path('tools/egpu_integrated_paired_evidence_discovery.py'),
+            Path('tools/egpu_integrated_review_bundle.py'),
+          ]
+          forbidden_modules = (
+            'openpilot.cereal.messaging', 'openpilot.common.params', 'msgq.visionipc', 'tinygrad',
+          )
+          forbidden_names = {'PubMaster', 'VisionIpcClient'}
+          for path in files:
+            source = path.read_text(encoding='utf-8')
+            tree = ast.parse(source)
+            for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                for alias in node.names:
+                  if alias.name.startswith(forbidden_modules):
+                    raise SystemExit(f'forbidden runtime import in {path}: {alias.name}')
+              if isinstance(node, ast.ImportFrom):
+                module = node.module or ''
+                if module.startswith(forbidden_modules):
+                  raise SystemExit(f'forbidden runtime import in {path}: {module}')
+                for alias in node.names:
+                  if alias.name in forbidden_names:
+                    raise SystemExit(f'forbidden runtime symbol in {path}: {alias.name}')
+            for token in ('Params(', '.put_bool(', "pm.send('modelV2'", "pm.send('carControl'", 'Device["AMD"]'):
+              if token in source:
+                raise SystemExit(f'forbidden runtime/control token in {path}: {token}')
+          print('offlineGuardianReplayFaultIsolation=PASS')
+          PY
+
+      - name: Verify S1 and S2A recorders cannot mutate markers or publish controls
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          marker_names = {'OBSERVER_MARKER', 'TELEMETRY_MARKER', 'SHADOW_MARKER'}
+          forbidden_marker_methods = {'touch', 'unlink', 'write_text', 'write_bytes', 'rename', 'replace'}
+          for path in [Path('tools/egpu_integrated_s1_recorder.py'), Path('tools/egpu_integrated_s2a_recorder.py')]:
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            for node in ast.walk(tree):
+              if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if isinstance(node.func.value, ast.Name) and node.func.value.id in marker_names and node.func.attr in forbidden_marker_methods:
+                  raise SystemExit(f'forbidden marker mutation in {path}: {node.func.value.id}.{node.func.attr}')
+              if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                  if alias.name == 'PubMaster':
+                    raise SystemExit(f'{path} must not import PubMaster')
+            source = path.read_text(encoding='utf-8')
+            for token in ('Params(', '.put_bool(', '.put(', 'PubMaster('):
+              if token in source:
+                raise SystemExit(f'forbidden recorder token in {path}: {token}')
+          print('recorderReadOnlyVerification=PASS')
+          PY
+
+      - name: Verify S2B execution tooling remains deferred
+        run: |
+          test ! -e tools/egpu_integrated_s2b_recorder.py
+          test ! -e tools/egpu_integrated_s2b_qualification.py
+          test ! -e tools/egpu_integrated_s4c_runner.py
+          echo 's2bExecutionDeferred=PASS'
+
+      - name: Verify commissioning policy schemas have no hidden defaults
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in [
+            Path('config/egpu_integrated_s1_policy.schema.json'),
+            Path('config/egpu_integrated_s2a_policy.schema.json'),
+          ]:
+            schema = json.loads(path.read_text())
+            required = set(schema['required'])
+            props = schema['properties']
+            if set(props) != required:
+              raise SystemExit(f'policy properties and required fields differ: {path}')
+            for name, value in props.items():
+              if 'default' in value:
+                raise SystemExit(f'hidden default in {path}: {name}')
+          print('commissioningPolicyNoDefaults=PASS')
+          PY
+
+      - name: Verify evidence schemas expose complete top-level contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in [
+            Path('config/egpu_integrated_s1_evidence.schema.json'),
+            Path('config/egpu_integrated_s2a_evidence.schema.json'),
+          ]:
+            schema = json.loads(path.read_text())
+            required = set(schema['required'])
+            props = set(schema['properties'])
+            if required != props:
+              raise SystemExit(f'evidence schema top-level required/properties differ: {path}')
+            if schema.get('additionalProperties') is not False:
+              raise SystemExit(f'evidence schema must reject unknown top-level fields: {path}')
+          replay = json.loads(Path('config/egpu_integrated_guardian_replay_row.schema.json').read_text())
+          if replay.get('additionalProperties') is not False:
+            raise SystemExit('Guardian replay row schema must reject unknown top-level fields')
+          required = set(replay.get('required', []))
+          if required != {'sourceHead', 'sourceBranch', 'active', 'shadow', 'scene'}:
+            raise SystemExit('Guardian replay row required fields changed unexpectedly')
+          scene_props = replay['$defs']['scene']['properties']
+          for required_scene_field in ('leadCutOutTimeS', 'leadCutOutConfidence'):
+            if required_scene_field not in scene_props:
+              raise SystemExit(f'missing Carrot cut-out replay field: {required_scene_field}')
+          print('evidenceSchemaTopLevelContract=PASS')
+          PY
+
+      - name: Verify parked probe is readiness-gated and has no control publication
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
           path = Path('tools/egpu_integrated_s4b_shadow_probe.py')
-          tree = ast.parse(path.read_text(encoding='utf-8'))
-          forbidden_imports = {'PubMaster'}
+          source = path.read_text(encoding='utf-8')
+          tree = ast.parse(source)
           for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
               for alias in node.names:
-                if alias.name in forbidden_imports:
-                  raise SystemExit(f'forbidden import: {alias.name}')
+                if alias.name == 'PubMaster':
+                  raise SystemExit('forbidden PubMaster import')
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'send':
               if node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value in {'modelV2', 'carControl'}:
                 raise SystemExit(f'forbidden publish call: {node.args[0].value}')
-          source = path.read_text(encoding='utf-8')
-          for required in ('controlEligible", False', 'qualityComparisonEligible", False', 'MAX_S4B_HZ = 5.0'):
+          for required in (
+            'controlEligible\", False', 'qualityComparisonEligible\", False', 'MAX_S4B_HZ = 5.0',
+            '"--readiness"', '"--expected-head"', 'S4B_REVIEW_READINESS',
+            'shadowExecutionAuthorization', 's4bReadinessSha256',
+          ):
             if required not in source:
-              raise SystemExit(f'missing safety invariant: {required}')
-          print('staticSafetyVerification=PASS')
+              raise SystemExit(f'missing S4B safety invariant: {required}')
+          gate_call = source.index('_, readiness_sha256 = validate_entry(')
+          heavy_import = source.index('import numpy as np')
+          if gate_call >= heavy_import:
+            raise SystemExit('S4B readiness gate must run before heavy camera/QCOM initialization')
+          print('s4bReadinessEntryGateVerification=PASS')
           PY
 
       - name: Diff hygiene

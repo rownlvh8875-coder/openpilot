@@ -64,6 +64,7 @@ A_CRUISE_MAX_BP_CARROT = [0., 10 * CV.KPH_TO_MS, 40 * CV.KPH_TO_MS, 60 * CV.KPH_
 class CarrotPlanner:
   def __init__(self):
     self.params = Params()
+    self.h1_consumed_params_raw = {}
     self.params_count = 0
     self.frame = 0
 
@@ -105,7 +106,7 @@ class CarrotPlanner:
 
     self.soft_hold_active = 0
     self.events = Events()
-    self.myDrivingMode = DrivingMode(self.params.get_int("MyDrivingMode"))
+    self.myDrivingMode = DrivingMode(self._h1_get_int("MyDrivingMode"))
     self.myDrivingMode_last = self.myDrivingMode
     self.myDrivingMode_disable_auto = False
     self.myEcoModeFactor = 0.9
@@ -162,48 +163,58 @@ class CarrotPlanner:
     self.trafficStopModelLeadOffset = 0.0
     self.last_event_time = 0.0
 
+  def _h1_get_int(self, key):
+    value = self.params.get_int(key)
+    self.h1_consumed_params_raw[key] = {"type": "int", "value": int(value)}
+    return value
+
+  def _h1_get_float(self, key):
+    value = self.params.get_float(key)
+    self.h1_consumed_params_raw[key] = {"type": "float", "value": float(value)}
+    return value
+
   def _params_update(self):
     self.frame += 1
     self.params_count += 1
     if self.params_count % 10 == 0:
-      myDrivingMode = DrivingMode(self.params.get_int("MyDrivingMode"))
+      myDrivingMode = DrivingMode(self._h1_get_int("MyDrivingMode"))
       if myDrivingMode != self.myDrivingMode_last:
         self.myDrivingMode_disable_auto = True
       self.myDrivingMode_last = myDrivingMode
       
-      self.myDrivingModeAuto = self.params.get_int("MyDrivingModeAuto")
+      self.myDrivingModeAuto = self._h1_get_int("MyDrivingModeAuto")
       if self.myDrivingModeAuto > 0 and not self.myDrivingMode_disable_auto:
         self.myDrivingMode = self.drivingModeDetector.get_mode(self.myDrivingModeAuto)
       else:
         self.myDrivingMode = myDrivingMode
 
     if self.params_count == 10:
-      self.myHighModeFactor = 1.2 #float(self.params.get_int("MyHighModeFactor")) / 100.
-      self.trafficLightDetectMode = self.params.get_int("TrafficLightDetectMode") # 0: None, 1:Stop, 2:Stop&Go
+      self.myHighModeFactor = 1.2 #float(self._h1_get_int("MyHighModeFactor")) / 100.
+      self.trafficLightDetectMode = self._h1_get_int("TrafficLightDetectMode") # 0: None, 1:Stop, 2:Stop&Go
     elif self.params_count == 20:
-      self.tFollowGap1 = self.params.get_float("TFollowGap1") / 100.
-      self.tFollowGap2 = self.params.get_float("TFollowGap2") / 100.
-      self.tFollowGap3 = self.params.get_float("TFollowGap3") / 100.
-      self.tFollowGap4 = self.params.get_float("TFollowGap4") / 100.
-      self.dynamicTFollow = self.params.get_float("DynamicTFollow") / 100.
-      self.leadAccelResponse = int(np.clip(self.params.get_int("LeadAccelResponse"), 0, 5))
-      self.dynamicTFollowLC = self.params.get_float("DynamicTFollowLC") / 100.
-      self.enableSpeedTF = self.params.get_int("EnableSpeedTF")
-      self.tFollowDecelBoost = self.params.get_float("TFollowDecelBoost") / 100.
+      self.tFollowGap1 = self._h1_get_float("TFollowGap1") / 100.
+      self.tFollowGap2 = self._h1_get_float("TFollowGap2") / 100.
+      self.tFollowGap3 = self._h1_get_float("TFollowGap3") / 100.
+      self.tFollowGap4 = self._h1_get_float("TFollowGap4") / 100.
+      self.dynamicTFollow = self._h1_get_float("DynamicTFollow") / 100.
+      self.leadAccelResponse = int(np.clip(self._h1_get_int("LeadAccelResponse"), 0, 5))
+      self.dynamicTFollowLC = self._h1_get_float("DynamicTFollowLC") / 100.
+      self.enableSpeedTF = self._h1_get_int("EnableSpeedTF")
+      self.tFollowDecelBoost = self._h1_get_float("TFollowDecelBoost") / 100.
     elif self.params_count == 30:
-      self.cruiseMaxVals0 = self.params.get_float("CruiseMaxVals0") / 100.
-      self.cruiseMaxVals1 = self.params.get_float("CruiseMaxVals1") / 100.
-      self.cruiseMaxVals2 = self.params.get_float("CruiseMaxVals2") / 100.
-      self.cruiseMaxVals3 = self.params.get_float("CruiseMaxVals3") / 100.
-      self.cruiseMaxVals4 = self.params.get_float("CruiseMaxVals4") / 100.
-      self.cruiseMaxVals5 = self.params.get_float("CruiseMaxVals5") / 100.
-      self.cruiseMaxVals6 = self.params.get_float("CruiseMaxVals6") / 100.
+      self.cruiseMaxVals0 = self._h1_get_float("CruiseMaxVals0") / 100.
+      self.cruiseMaxVals1 = self._h1_get_float("CruiseMaxVals1") / 100.
+      self.cruiseMaxVals2 = self._h1_get_float("CruiseMaxVals2") / 100.
+      self.cruiseMaxVals3 = self._h1_get_float("CruiseMaxVals3") / 100.
+      self.cruiseMaxVals4 = self._h1_get_float("CruiseMaxVals4") / 100.
+      self.cruiseMaxVals5 = self._h1_get_float("CruiseMaxVals5") / 100.
+      self.cruiseMaxVals6 = self._h1_get_float("CruiseMaxVals6") / 100.
     elif self.params_count == 40:
-      self.stop_distance = self.params.get_float("StopDistanceCarrot") / 100.
-      self.eco_over_speed = self.params.get_int("CruiseEcoControl")
-      self.autoNaviSpeedDecelRate = float(self.params.get_int("AutoNaviSpeedDecelRate")) * 0.01
-      self.aChangeCostStarting = self.params.get_float("AChangeCostStarting")
-      self.trafficStopDistanceAdjust = self.params.get_float("TrafficStopDistanceAdjust") / 100.
+      self.stop_distance = self._h1_get_float("StopDistanceCarrot") / 100.
+      self.eco_over_speed = self._h1_get_int("CruiseEcoControl")
+      self.autoNaviSpeedDecelRate = float(self._h1_get_int("AutoNaviSpeedDecelRate")) * 0.01
+      self.aChangeCostStarting = self._h1_get_float("AChangeCostStarting")
+      self.trafficStopDistanceAdjust = self._h1_get_float("TrafficStopDistanceAdjust") / 100.
     elif self.params_count >= 100:
 
       self.params_count = 0

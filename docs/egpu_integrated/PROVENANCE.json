@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 4,
+  "capturedDate": "2026-09-08",
+  "upstream": {
+    "repository": "ajouatom/openpilot",
+    "branch": "carrot-wip",
+    "reviewedHead": "b7ab68addc29c3b9dc8f02023de36dba7109ed8c",
+    "previousReviewedHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+    "reviewedModeldBlob": "e4de3eb2236f6bb0c54c87666099147311602f4f",
+    "reviewedSeries": [
+      "bd2fd192e71de8417afcc5f2d8fa3e155a4d2177",
+      "00fe08f113b500c76a60a7a0efd562d46a23d92e",
+      "e8937726af50ac57681b560015076a5b596e960d",
+      "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+      "b7ab68addc29c3b9dc8f02023de36dba7109ed8c"
+    ],
+    "reviewNotes": [
+      "All eGPU-critical blobs remained identical to the previous reviewed baseline.",
+      "log.capnp merged local H1 Event slots with upstream RadarState cutOutTime/cutOutConfidence fields in disjoint structs/ordinals.",
+      "longitudinal_planner.py merged local H1 observation-only instrumentation with upstream cutout_relief_enabled MPC gating in disjoint hunks.",
+      "Upstream cut-out relief changes longitudinal MPC future headway behavior and had replay/focused tests upstream, but upstream documentation states no closed-loop vehicle test was performed for that change. Integrated hardware commissioning remains required before vehicle use.",
+      "a92d3a extends radar replay source hashing and deployment source bundles to opendbc Python/capnp/DBC sources.",
+      "Expanded AMD/USB tree and control-sensitive object IDs are unchanged between e893 and a92d3a.",
+      "Integrated bundle coverage additionally matches the hash source families, including opendbc/can, safety, and controls/lib.",
+      "Hyundai radar DBC and H1 are local-v6 additions absent upstream; their future upstream appearance still requires review.",
+      "b7ab68a is reviewed for selective offline radar replay integration. It is not fully integrated upstream code.",
+      "All fourteen Tesla control/CAN/settings/docs/test paths introduced through 20c7bb7 remain at retained integrated source 8997be8; two new tests remain absent.",
+      "Six radar paths from b7ab68a are adapted in reviewed selected source fdac75a; prior provenance coverage is preserved and browser timeline/gap cases are hardened.",
+      "AGENTS.md deployment/branch instructions are not imported; original user restrictions govern this separate integrated research branch.",
+      "Strict disposition binds real previous/remote/retained/selected Git commits, complete reviewed path coverage and current local source. Future watched drift still requires review."
+    ],
+    "integrationMode": "SELECTIVE_WITH_EXCLUSIONS",
+    "upstreamFullyIntegrated": false
+  },
+  "integration": {
+    "repository": "rownlvh8875-coder/openpilot",
+    "baseBranch": "carrot-wip-integrated-v0",
+    "vehicleMigrationBranch": "carrot-wip-integrated-v6",
+    "controlAuthorization": false,
+    "publicRoadShadowAuthorization": false
+  },
+  "localV6Migration": {
+    "sourceLiveBranch": "carrot-wip",
+    "sourceLiveHead": "ce3d76301c988db8aa955e1ebc6496f0a0fd2abc",
+    "trackedFilesMigrated": 6,
+    "trackedDiffAdditions": 179,
+    "trackedDiffDeletions": 36,
+    "additionalSourceFilesMigrated": [
+      "opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc",
+      "openpilot/selfdrive/controls/lib/h1_observability.py"
+    ],
+    "generatedFilesExcluded": [
+      "openpilot/cereal/services.h"
+    ],
+    "manualConflictResolution": {
+      "path": "openpilot/selfdrive/controls/plannerd.py",
+      "resolution": "preserve both latest Carrot StoppingLeadFilter and local v6 H1Observability imports because both are used"
+    },
+    "upstreamRebase20260908": {
+      "upstreamHead": "e8937726af50ac57681b560015076a5b596e960d",
+      "reviewedOverlapPaths": [
+        "openpilot/cereal/log.capnp",
+        "openpilot/selfdrive/controls/lib/longitudinal_planner.py"
+      ],
+      "semanticConflicts": false,
+      "mergeVerification": "both local-v6 and upstream cut-out invariants are asserted by hardware-free regression tests"
+    }
+  },
+  "safetyBoundary": {
+    "carrotWipOriginalBranchModified": false,
+    "liveCommaCheckoutModifiedByIntegration": false,
+    "shadowPublishesControls": false,
+    "pandaSafetyModified": false,
+    "actuatorLimitsModified": false,
+    "s4bMaxHz": 5.0,
+    "s4bStationaryOnly": true,
+    "closedLoopVehicleValidationOfUpstreamCutoutByThisProject": false
+  },
+  "offlineReview20260908": {
+    "integratedHeadAtReviewStart": "2ed60a966cdd3b29a55093a36103b43dc7231ffe",
+    "stagingHeadReviewed": "e8f774997479e9a75a46b81472f7ad7508f6e1da",
+    "stagingPr12MergeHead": "9b7ce3a733ffc8dc191b6c051a045903490a1400",
+    "reviewedUpstreamHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+    "method": "three-way merge staging into a development branch based on current integrated-v6, preserving PR9/10/11",
+    "criticalObjects": [
+      {
+        "path": "openpilot/selfdrive/modeld/modeld.py",
+        "upstreamObject": "e4de3eb2236f6bb0c54c87666099147311602f4f"
+      },
+      {
+        "path": "openpilot/selfdrive/modeld/fill_model_msg.py",
+        "upstreamObject": "1bffbcc5202d64e42b3832a4ab9ee0f72ff85bd1"
+      },
+      {
+        "path": "openpilot/selfdrive/modeld/parse_model_outputs.py",
+        "upstreamObject": "26c138b8eccb420d201256f45009ecabb2279f5b"
+      },
+      {
+        "path": "openpilot/selfdrive/modeld/helpers.py",
+        "upstreamObject": "151eead3ab6ff7705cd405cf6c88a47c56414b4c"
+      },
+      {
+        "path": "openpilot/selfdrive/modeld/big_model.py",
+        "upstreamObject": "1ab10ddb3c64cba7b29e8662deaab03c3ffda1ad"
+      },
+      {
+        "path": "openpilot/system/hardware/usbgpu.py",
+        "upstreamObject": "a9814881897f7977443ee998a3b5dbbeb169541e"
+      },
+      {
+        "path": "openpilot/common/usbgpu_bus_lock.py",
+        "upstreamObject": "3218ea969d43c929ee50d3dcdcb1685920f71207"
+      },
+      {
+        "path": "openpilot/system/manager/process_config.py",
+        "upstreamObject": "509dc51f3d07cfdbe9fdaeff00311612b6ebc2ae"
+      },
+      {
+        "path": "launch_chffrplus.sh",
+        "upstreamObject": "d49e055b572a1789ea841c3c6717183fc0b21d30"
+      },
+      {
+        "path": "launch_openpilot.sh",
+        "upstreamObject": "3e65f350e0bee396c1e9dd056d1b349f6b8b699b"
+      },
+      {
+        "path": "launch_env.sh",
+        "upstreamObject": "4935a9b2659c9d86440948adfaadf2b54898701e"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/ops_amd.py",
+        "upstreamObject": "c94f78ebb52c0d329ab43f085413aa8a75eb7a46"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/support/am/ip.py",
+        "upstreamObject": "bbe1804230c5f276ec44d8aca2d465f21b8d2b52"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/support/usb.py",
+        "upstreamObject": "2214a1a7c7f8ca6fffd4efd72b88ea3b37171490"
+      },
+      {
+        "path": "tinygrad_repo/extra/amdpci/am_smi.py",
+        "upstreamObject": "c6aa3cfe06afbb5294ad090b50b02be747f8c8b8"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/support/am",
+        "upstreamObject": "d0073fb7629c5f179a77b01a2635e16c2fb0e51c"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/support/amd.py",
+        "upstreamObject": "cc7e07009881a2f534f599522b5c9482fd82eec2"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/support/compiler_amd.py",
+        "upstreamObject": "88cc2c6771cf710fd7a711b311189c367b4969da"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/autogen/am",
+        "upstreamObject": "5b46705bb47689bc5dab1edeb381a1f799b9917e"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/autogen/amd",
+        "upstreamObject": "644712929484de43fea1b2d8ff48f7473bb5cd4f"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/autogen/amd_gpu.py",
+        "upstreamObject": "f47a44fff4e51317750dfe644803cf745f544c38"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/autogen/amdgpu_drm.py",
+        "upstreamObject": "f65998552370cd22417316583009a69a1389112d"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/autogen/amdgpu_kd.py",
+        "upstreamObject": "8641b07ff14f9e9a94cd7b01f76c2cc71b347fdc"
+      },
+      {
+        "path": "tinygrad_repo/tinygrad/runtime/autogen/libusb.py",
+        "upstreamObject": "463aefa61110b9619ea9cb375aa575d37909a127"
+      },
+      {
+        "path": "tinygrad_repo/extra/amdpci",
+        "upstreamObject": "93d7909045884bf68b80c16822258e2e576ae17b"
+      }
+    ],
+    "controlSensitiveObjects": [
+      {
+        "path": "openpilot/cereal/custom.capnp",
+        "upstreamObject": "be400f1a1c9744cb42d0426a524ed508759d9b41",
+        "integratedObjectAtReviewStart": "86fa16a4407379bc1a7a871275d2fe4b720fd01a"
+      },
+      {
+        "path": "openpilot/cereal/log.capnp",
+        "upstreamObject": "8245208e693d843ee8a3fbeaae60143c89cddd12",
+        "integratedObjectAtReviewStart": "c0c83f3fea28771118b29b385c39fb0a74b9b763"
+      },
+      {
+        "path": "openpilot/cereal/services.py",
+        "upstreamObject": "4e09fb6e69f0b04e97e31c299f9a99130d81cddc",
+        "integratedObjectAtReviewStart": "8950e224f5f554ef93468791a4ffb521f1bcf9bd"
+      },
+      {
+        "path": "openpilot/selfdrive/carrot/carrot_functions.py",
+        "upstreamObject": "d730032efe992a6707a632327b798147de7231ff",
+        "integratedObjectAtReviewStart": "99ab5376322062a71a4be322521382114db17d34"
+      },
+      {
+        "path": "openpilot/selfdrive/controls/lib/longitudinal_planner.py",
+        "upstreamObject": "dc5fc428c3646197a2f1f61a70cb038cb85b350d",
+        "integratedObjectAtReviewStart": "4b40cfad37a3481b63bb5e57dcd067190890b491"
+      },
+      {
+        "path": "openpilot/selfdrive/controls/plannerd.py",
+        "upstreamObject": "3a1ea232a27162a8c601ec4cdd1709d9f80018b0",
+        "integratedObjectAtReviewStart": "35b0aa3dbc70a8ef84c0eac0323fcf9565c5f309"
+      },
+      {
+        "path": "openpilot/selfdrive/controls/lib/h1_observability.py",
+        "upstreamObject": null,
+        "integratedObjectAtReviewStart": "2b6e18a83f9a871d857dda9f53fe3e8fad863dd7"
+      },
+      {
+        "path": "opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc",
+        "upstreamObject": null,
+        "integratedObjectAtReviewStart": "a55e1144c7c031047774621bc74f0341f747836b"
+      },
+      {
+        "path": "openpilot/selfdrive/carrot/radar/radard_dpath.py",
+        "upstreamObject": "571d05592ccf1be2a52594da2a6ce79b82c27f15",
+        "integratedObjectAtReviewStart": "571d05592ccf1be2a52594da2a6ce79b82c27f15"
+      },
+      {
+        "path": "openpilot/selfdrive/carrot/radar_motion/controller.py",
+        "upstreamObject": "8de8509ae25941bc6403005fd04c8a2a40cc318f",
+        "integratedObjectAtReviewStart": "8de8509ae25941bc6403005fd04c8a2a40cc318f"
+      },
+      {
+        "path": "openpilot/selfdrive/carrot/radar_motion/trajectory_cutout.py",
+        "upstreamObject": "9291ff8e7c3cd241f8d20855ed6720dbedefa5ea",
+        "integratedObjectAtReviewStart": "9291ff8e7c3cd241f8d20855ed6720dbedefa5ea"
+      },
+      {
+        "path": "openpilot/selfdrive/controls/lib/longitudinal_cutout.py",
+        "upstreamObject": "e0fd3da0c5d0a065fa39499190d2ab05e2d91382",
+        "integratedObjectAtReviewStart": "e0fd3da0c5d0a065fa39499190d2ab05e2d91382"
+      },
+      {
+        "path": "openpilot/selfdrive/controls/lib/longitudinal_mpc_lib/long_mpc.py",
+        "upstreamObject": "843fc29a69c876b557476aea155603f9930cc136",
+        "integratedObjectAtReviewStart": "843fc29a69c876b557476aea155603f9930cc136"
+      }
+    ],
+    "provenanceWatchPaths": [
+      "openpilot/selfdrive/carrot/radar/tools/radar_web_export.py",
+      "tools/carrot_route_vault/build_bundle.py",
+      "opendbc_repo/opendbc"
+    ],
+    "controlPathChangedInThisReview": false,
+    "actualHardwareValidation": false,
+    "controlAuthorization": false,
+    "publicRoadAuthorization": false,
+    "remainingHardwareGates": [
+      "source-bound S1",
+      "real S2A hardware PASS before S2B execution tooling",
+      "S4B readiness and explicit hardware authorization"
+    ]
+  },
+  "selectiveUpstreamReview20260908": {
+    "integratedHeadAtReviewStart": "cbce1250f5e58302844bfeb03c4e1de9a5a2e6b3",
+    "previousReviewedUpstreamHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+    "reviewedUpstreamHead": "b7ab68addc29c3b9dc8f02023de36dba7109ed8c",
+    "retainedSourceHead": "8997be8b7cbc9f8b978ef942b7c9d577bf76f790",
+    "selectedSourceHead": "fdac75aedb7afe280cd67590fd02f693a4eb72d5",
+    "dispositionRecord": "config/egpu_integrated_upstream_disposition.json",
+    "reviewDocument": "docs/egpu_integrated/UPSTREAM_DISPOSITION_20260908.md",
+    "reviewedDeltaPathCount": 21,
+    "selectedRadarPaths": 6,
+    "retainedTeslaPaths": 14,
+    "retainedInstructionPaths": 1,
+    "reviewStatus": "REVIEWED_WITH_EXCLUSIONS",
+    "verificationScope": "WATCHED_BOUNDARIES_ONLY",
+    "upstreamFullyIntegrated": false,
+    "newWatchedTrees": [
+      "openpilot/selfdrive/controls",
+      "panda/board",
+      "tools/carrot_route_vault"
+    ],
+    "controlPathChanged": false,
+    "serviceDeploymentPerformed": false,
+    "actualHardwareValidation": false,
+    "teslaFixesIntegrated": false,
+    "controlAuthorization": false,
+    "publicRoadAuthorization": false,
+    "validationScope": [
+      "complete hardware-free integrated suite",
+      "29 synthetic fault scenarios",
+      "committed review bundle CLI",
+      "source disposition mutation/absence regressions",
+      "route viewer tests",
+      "desktop continuity/graph calculations",
+      "browser-logic timeline and graph regressions without native rendering"
+    ]
+  }
+}

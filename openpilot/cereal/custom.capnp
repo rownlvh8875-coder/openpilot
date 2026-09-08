@@ -219,10 +219,69 @@ struct CarrotNaviMedia @0xf35cc4560bbf6ec2 {
 	payload @14 :Data;
 }
 
-struct CustomReserved3 @0xda96579883444c35 {
+struct CarrotH1ReplayTrace @0xda96579883444c35 {
+	schemaVersion @0 :UInt16;
+	processEpoch @1 :UInt64;
+	plannerCycle @2 :UInt64;
+	subMasterFrame @3 :UInt64;
+	planningTriggerKind @4 :UInt8;
+	planningTriggerLogMonoTime @5 :UInt64;
+	configSequence @6 :UInt64;
+	configSha256 @7 :Data;
+	modelV2LogMonoTime @8 :UInt64;
+	liveTracksLogMonoTime @9 :UInt64;
+	carControlLogMonoTime @10 :UInt64;
+	carStateLogMonoTime @11 :UInt64;
+	controlsStateLogMonoTime @12 :UInt64;
+	liveParametersLogMonoTime @13 :UInt64;
+	radarStateLogMonoTime @14 :UInt64;
+	selfdriveStateLogMonoTime @15 :UInt64;
+	carrotManLogMonoTime @16 :UInt64;
+	updatedMask @17 :UInt16;
+	aliveMask @18 :UInt16;
+	freqOkMask @19 :UInt16;
+	validMask @20 :UInt16;
+	radarInputKind @21 :UInt8;
+	fastLeadMask @22 :UInt8;
+	fastLeadTrackId @23 :Int32 = -1;
+	fastLeadReason @24 :UInt8;
+	effectiveRadarStateSha256 @25 :Data;
+	loopSequence @26 :UInt64;
+	captureMonoTimeNs @27 :UInt64;
+	decisionMonoTimeNs @28 :UInt64;
+	seenMask @29 :UInt16;
+	longitudinalPlanEmitted @30 :Bool;
+	runLongitudinal @31 :Bool;
+	liveTracksRecent @32 :Bool;
+	useLiveTracksTrigger @33 :Bool;
+	triggerIntervalOk @34 :Bool;
+	modelV2RecvFrame @35 :UInt64;
+	liveTracksRecvFrame @36 :UInt64;
+	carControlRecvFrame @37 :UInt64;
+	carStateRecvFrame @38 :UInt64;
+	controlsStateRecvFrame @39 :UInt64;
+	liveParametersRecvFrame @40 :UInt64;
+	radarStateRecvFrame @41 :UInt64;
+	selfdriveStateRecvFrame @42 :UInt64;
+	carrotManRecvFrame @43 :UInt64;
+	modelV2RecvTimeNs @44 :UInt64;
+	liveTracksRecvTimeNs @45 :UInt64;
+	carControlRecvTimeNs @46 :UInt64;
+	carStateRecvTimeNs @47 :UInt64;
+	controlsStateRecvTimeNs @48 :UInt64;
+	liveParametersRecvTimeNs @49 :UInt64;
+	radarStateRecvTimeNs @50 :UInt64;
+	selfdriveStateRecvTimeNs @51 :UInt64;
+	carrotManRecvTimeNs @52 :UInt64;
+	consumedSnapshotIdentitySha256 @53 :Data;
 }
 
-struct CustomReserved4 @0x80ae746ee2596b11 {
+struct CarrotH1ConfigSnapshot @0x80ae746ee2596b11 {
+	schemaVersion @0 :UInt16;
+	processEpoch @1 :UInt64;
+	configSequence @2 :UInt64;
+	configSha256 @3 :Data;
+	canonicalJsonUtf8 @4 :Data;
 }
 
 struct CustomReserved5 @0xa5cd762cd951a455 {

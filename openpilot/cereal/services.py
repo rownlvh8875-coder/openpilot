@@ -59,6 +59,9 @@ _services: dict[str, tuple] = {
   # modelV2-triggered plans run at 20 Hz; the fast physical-radar path follows
   # the supported 14-25 Hz liveTracks range.
   "longitudinalPlan": (True, 20., 10, QueueSize.SMALL, (14., 25.)),
+  # H1 observability v6: one trace per plannerd main-loop SubMaster update.
+  "carrotH1ReplayTrace": (True, 40., None, QueueSize.SMALL, (20., 50.)),
+  "carrotH1ConfigSnapshot": (True, 0., None, QueueSize.SMALL),
   "lateralManeuverPlan": (True, 20.),
   "driverAssistance": (True, 20., 20),
   "procLog": (True, 0.5, 15, QueueSize.BIG),

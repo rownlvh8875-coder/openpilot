@@ -127,6 +127,12 @@ class LongitudinalPlanner:
     self.v_cruise_kph = 0.0
 
     self.params = Params()
+    self.h1_consumed_params_raw = {}
+
+    # Observational-only values for future H1 config snapshots. These mirror
+    # the exact local values already used below and do not alter control math.
+    self.observedLongActuatorDelaySeconds = 0.0
+    self.observedVEgoStoppingMetersPerSecond = 0.0
 
   def update_lead_tracks(self, radar_state):
     for index, lead in enumerate((radar_state.leadOne, radar_state.leadTwo)):
@@ -273,6 +279,10 @@ class LongitudinalPlanner:
       jerk_factor=carrot.jerk_factor_apply,
       a_change_cost_starting=carrot.aChangeCostStarting,
       lead_accel_response_enabled=lead_accel_response_enabled,
+      cutout_relief_enabled=(
+        not reset_state and not sm['carState'].gasPressed
+        and not force_slow_decel and not self.output_should_stop
+      ),
       lead_track_frames=lead_track_frames,
       measured_a_ego=sm['carState'].aEgo,
     )
@@ -302,8 +312,14 @@ class LongitudinalPlanner:
     self.a_desired = float(np.interp(self.dt, CONTROL_N_T_IDX, self.a_desired_trajectory))
     self.v_desired_filter.x = self.v_desired_filter.x + self.dt * (self.a_desired + a_prev) / 2.0
 
-    longitudinalActuatorDelay = self.params.get_float("LongActuatorDelay")*0.01
-    vEgoStopping = self.params.get_float("VEgoStopping") * 0.01
+    longitudinalActuatorDelayRaw = self.params.get_float("LongActuatorDelay")
+    vEgoStoppingRaw = self.params.get_float("VEgoStopping")
+    self.h1_consumed_params_raw["LongActuatorDelay"] = {"type": "float", "value": float(longitudinalActuatorDelayRaw)}
+    self.h1_consumed_params_raw["VEgoStopping"] = {"type": "float", "value": float(vEgoStoppingRaw)}
+    longitudinalActuatorDelay = longitudinalActuatorDelayRaw * 0.01
+    vEgoStopping = vEgoStoppingRaw * 0.01
+    self.observedLongActuatorDelaySeconds = float(longitudinalActuatorDelay)
+    self.observedVEgoStoppingMetersPerSecond = float(vEgoStopping)
     action_t =  longitudinalActuatorDelay + DT_MDL
 
     output_a_target_base, output_should_stop_mpc, output_v_target_mpc, _ = get_accel_from_plan(
