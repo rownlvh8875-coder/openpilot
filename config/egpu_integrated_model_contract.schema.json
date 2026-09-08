@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrated eGPU source-bound BIG/SMALL model contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "source", "generation", "registry", "policy", "contractId"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "branch", "interfaceBlobs", "interfaceFingerprint"],
+      "properties": {
+        "head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "branch": {"type": "string", "minLength": 1},
+        "interfaceFingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "interfaceBlobs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "blob"],
+            "properties": {
+              "path": {
+                "enum": [
+                  "openpilot/selfdrive/modeld/modeld.py",
+                  "openpilot/selfdrive/modeld/fill_model_msg.py",
+                  "openpilot/selfdrive/modeld/parse_model_outputs.py"
+                ]
+              },
+              "blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+            }
+          }
+        }
+      }
+    },
+    "generation": {"type": "integer", "minimum": 0},
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "fallbackSlot", "slots", "policy"],
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "fallbackSlot": {"const": "qcom"},
+        "slots": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["qcom", "egpu"],
+          "properties": {
+            "qcom": {"$ref": "#/$defs/qcomSlot"},
+            "egpu": {"$ref": "#/$defs/egpuSlot"}
+          }
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["runtimeHotSwap", "crossSlotFallback", "controlAuthorization"],
+          "properties": {
+            "runtimeHotSwap": {"const": false},
+            "crossSlotFallback": {"const": false},
+            "controlAuthorization": {"const": false}
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["oneBigOneSmallBaseline", "runtimeHotSwap", "crossGenerationMix", "fallbackSlot", "controlAuthorization", "publicRoadAuthorization"],
+      "properties": {
+        "oneBigOneSmallBaseline": {"const": true},
+        "runtimeHotSwap": {"const": false},
+        "crossGenerationMix": {"const": false},
+        "fallbackSlot": {"const": "qcom"},
+        "controlAuthorization": {"const": false},
+        "publicRoadAuthorization": {"const": false}
+      }
+    },
+    "contractId": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_name", "size", "sha256"],
+      "properties": {
+        "file_name": {"type": "string", "minLength": 1},
+        "size": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "commonSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slot", "model_id", "ref", "backend", "runner", "generation", "nominal_hz", "source", "artifact", "builtin", "control_eligible"],
+      "properties": {
+        "slot": {"type": "string"},
+        "model_id": {"type": "string", "minLength": 1},
+        "ref": {"type": "string", "minLength": 1},
+        "backend": {"type": "string"},
+        "runner": {"const": "tinygrad"},
+        "generation": {"type": "integer", "minimum": 0},
+        "nominal_hz": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+        "source": {"type": "string", "minLength": 1},
+        "artifact": {"$ref": "#/$defs/artifact"},
+        "builtin": {"type": "boolean"},
+        "control_eligible": {"const": false}
+      }
+    },
+    "qcomSlot": {
+      "allOf": [
+        {"$ref": "#/$defs/commonSlot"},
+        {
+          "properties": {
+            "slot": {"const": "qcom"},
+            "backend": {"const": "qcom"},
+            "source": {"const": "carrot-git-lfs"},
+            "builtin": {"const": true}
+          }
+        }
+      ]
+    },
+    "egpuSlot": {
+      "allOf": [
+        {"$ref": "#/$defs/commonSlot"},
+        {
+          "properties": {
+            "slot": {"const": "egpu"},
+            "backend": {"enum": ["amd-usb", "egpu"]},
+            "source": {"const": "carrot-big-model-manifest"},
+            "builtin": {"const": false}
+          }
+        }
+      ]
+    }
+  }
+}
