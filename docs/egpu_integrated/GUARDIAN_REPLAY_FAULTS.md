@@ -16,6 +16,9 @@ It does **not**:
 
 Every output keeps `controlAuthorization=false` and `publicRoadAuthorization=false`.
 
+The [2026-09-08 independent review](REVIEW_20260908.md) documents the current
+source baseline, regression evidence and outstanding hardware gates.
+
 ## Reviewed Carrot runtime fault semantics
 
 The current reviewed Carrot source behaves as follows on a runtime BIG/eGPU exception:
@@ -77,6 +80,7 @@ The offline analyzer assigns one of four review buckets:
 4. `OBSERVE` — no immediate review trigger.
 
 These are **review priority labels**, not safety PASS/FAIL states.
+`ROOT_CAUSE` calls for investigation; it does not establish a physical cause.
 
 ## Review fingerprints and queue
 
@@ -90,12 +94,28 @@ Each Guardian event gets a deterministic categorical fingerprint from:
 - review bucket.
 
 `egpu_integrated_review_queue.py` groups repeated fingerprints so a long replay route does not produce hundreds of redundant manual-review entries. The queue stores frequency and representative frame ranges while preserving source HEAD/branch identity.
+Queue grouping additionally binds fault state, fault issues/transitions, evidence
+coherence and both backend labels. Distinct faults with the same Guardian
+fingerprint remain distinct. Representative selection uses the lowest frame ID,
+then the lexicographically lowest process ID. Counts are input events, not
+independent incidents.
 
 ## Source identity
 
 Offline replay rows are source-bound. Mixed `sourceHead/sourceBranch` rows are rejected. Fault and Guardian observations for the same row are also checked for frame/backend coherence.
 
 This prevents evidence from different code revisions or different active-backend interpretations from being silently merged into one result.
+Typed required/allowed input fields are enforced. Optional `processId` must be
+present on every row if used; a new, previously unseen ID with
+`restartBoundary=true` is required to reset the sequence trackers. Exporter
+restart assertions are not independently verified hardware evidence.
+
+Fallback `outputFrameId` and `modelOutputFinite` provide explicit output proof.
+Missing proof yields `sameFrameOutputPreserved=null`; stale, missing, mismatched
+or nonfinite output yields false. Output proof and latch consistency are distinct:
+an inconsistent latch still triggers `ROOT_CAUSE` even when output is preserved.
+Invalid or gapped scene evidence cannot fabricate acquisition, resolution or
+other temporal transitions. Effective Guardian/temporal policies are serialized.
 
 ## Synthetic fault injection
 
@@ -106,6 +126,12 @@ This prevents evidence from different code revisions or different active-backend
 - unexpected BIG re-entry without restart,
 - SMALL-only startup without BIG hardware,
 - degraded PCIe evidence while BIG remains active.
+
+The suite now has 29 cases, also covering active disconnect, degraded USB,
+stale/mismatched fallback frames, NaN/Inf actions, stale hardware telemetry,
+supply faults with normal BIG, repeated BIG attempts, failed SMALL fallback,
+explicit restart recovery, source/backend mismatch, invalid CUT-OUT metadata,
+and simultaneous CUT-OUT/stop-disagreement onset.
 
 The harness touches no hardware and grants no vehicle authorization.
 

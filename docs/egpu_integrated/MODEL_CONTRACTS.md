@@ -139,6 +139,13 @@ The parser rejects:
 - different BIG/SMALL/contract generations,
 - unsafe slot/backend/fallback metadata.
 
+The 2026-09-08 review also closes empty-ID bypasses and lossy JSON coercions:
+imported IDs must be nonempty lowercase SHA256, integers cannot be booleans or
+numeric strings, nested unknown/omitted fields cannot be silently normalized,
+and slot source/runner values must match the existing reviewed schema. In-memory
+drafts may still omit their ID until serialization. Model contract hashes prove
+content identity, not trusted authorship or hardware readiness.
+
 ## CLI
 
 `tools/egpu_integrated_model_contract.py` supports only metadata operations:

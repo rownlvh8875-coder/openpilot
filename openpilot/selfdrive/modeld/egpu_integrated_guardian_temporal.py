@@ -7,7 +7,7 @@ heuristics, not comma safety limits.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import hashlib
 import json
 import math
@@ -45,8 +45,16 @@ class TemporalHeuristicPolicy:
   max_range_rate_dt_s: float = 1.0
   max_scene_gap_frames: int = 2
   max_action_timestamp_skew_s: float | None = None
+  standstill_speed_mps: float = 0.3
+  creep_speed_mps: float = 3.0
 
   def validate(self) -> None:
+    if any(not math.isfinite(value) for value in asdict(self).values() if value is not None):
+      raise ValueError("temporal heuristics must be finite")
+    if type(self.max_scene_gap_frames) is not int:
+      raise ValueError("max_scene_gap_frames must be an integer")
+    if not 0 < self.standstill_speed_mps < self.creep_speed_mps:
+      raise ValueError("speed heuristics must satisfy 0 < standstill < creep")
     if self.close_lead_m <= 0 or self.close_acquisition_m <= 0:
       raise ValueError("lead-distance heuristics must be positive")
     if self.close_acquisition_m < self.close_lead_m:
@@ -63,17 +71,20 @@ class TemporalHeuristicPolicy:
 
 def _cutout_active(scene: SceneContext) -> bool:
   return (
-    scene.lead_cutout_time_s is not None
+    scene.lead_present is True
+    and scene.lead_cutout_time_s is not None
     and scene.lead_cutout_confidence is not None
     and math.isfinite(scene.lead_cutout_time_s)
     and math.isfinite(scene.lead_cutout_confidence)
     and scene.lead_cutout_time_s > 0.0
-    and scene.lead_cutout_confidence > 0.0
+    and 0.0 < scene.lead_cutout_confidence <= 1.0
   )
 
 
 def _scene_integrity(scene: SceneContext) -> list[str]:
   issues: list[str] = []
+  if type(scene.frame_id) is not int or scene.frame_id < 0:
+    issues.append("scene_frame_invalid")
   if not math.isfinite(scene.timestamp_mono_s):
     issues.append("scene_timestamp_nonfinite")
   if not math.isfinite(scene.speed_mps) or scene.speed_mps < 0:
@@ -90,16 +101,24 @@ def _scene_integrity(scene: SceneContext) -> list[str]:
     issues.append("lead_cutout_time_negative")
   if scene.lead_cutout_confidence is not None and not 0.0 <= scene.lead_cutout_confidence <= 1.0:
     issues.append("lead_cutout_confidence_out_of_range")
-  if scene.lead_present is False and _cutout_active(scene):
+  if scene.lead_distance_m is not None and scene.lead_distance_m < 0:
+    issues.append("lead_distance_negative")
+  if (scene.lead_cutout_time_s is None) != (scene.lead_cutout_confidence is None):
+    issues.append("lead_cutout_metadata_incomplete")
+  if (
+    scene.lead_present is False
+    and scene.lead_cutout_time_s is not None and scene.lead_cutout_time_s > 0
+    and scene.lead_cutout_confidence is not None and scene.lead_cutout_confidence > 0
+  ):
     issues.append("lead_cutout_active_without_lead")
   return list(dict.fromkeys(issues))
 
 
 def _static_scene_tags(scene: SceneContext, policy: TemporalHeuristicPolicy) -> list[str]:
   tags: list[str] = []
-  if scene.standstill or scene.speed_mps < 0.3:
+  if scene.standstill or scene.speed_mps < policy.standstill_speed_mps:
     tags.append("standstill")
-  elif scene.speed_mps < 3.0:
+  elif scene.speed_mps < policy.creep_speed_mps:
     tags.append("creep")
 
   if scene.lead_present is True:
@@ -133,16 +152,21 @@ class GuardianTemporalTracker:
     self.policy.validate()
     self.prev_scene: SceneContext | None = None
     self.prev_stop_mismatch: bool | None = None
+    self.prev_action_timestamps: dict[str, float] = {}
 
   def reset(self) -> None:
     self.prev_scene = None
     self.prev_stop_mismatch = None
+    self.prev_action_timestamps = {}
 
   def _temporal_tags(self, scene: SceneContext, *, stop_mismatch: bool) -> tuple[list[str], list[str]]:
     tags: list[str] = []
     integrity: list[str] = []
     prev = self.prev_scene
     prev_stop_mismatch = self.prev_stop_mismatch
+    if _scene_integrity(scene):
+      self.reset()
+      return tags, integrity
     self.prev_scene = scene
     self.prev_stop_mismatch = stop_mismatch
     if prev is None:
@@ -159,6 +183,13 @@ class GuardianTemporalTracker:
     dt = scene.timestamp_mono_s - prev.timestamp_mono_s
     if dt <= 0:
       integrity.append("scene_timestamp_not_monotonic")
+    # A gap/regression cannot establish an onset or a resolution between paired
+    # frames. Start a fresh baseline while retaining the continuity diagnosis.
+    if integrity:
+      self.reset()
+      return tags, integrity
+    if "scene_frame_gap" in tags:
+      return tags, integrity
 
     if prev.lead_present is False and scene.lead_present is True:
       tags.append("lead_acquired")
@@ -199,10 +230,13 @@ class GuardianTemporalTracker:
 
     cutout_prev = _cutout_active(prev)
     cutout_now = _cutout_active(scene)
-    if not cutout_prev and cutout_now:
-      tags.append("lead_cutout_prediction_onset")
-    elif cutout_prev and not cutout_now:
-      tags.append("lead_cutout_prediction_resolved")
+    if all(value is not None for value in (
+      prev.lead_cutout_time_s, prev.lead_cutout_confidence, scene.lead_cutout_time_s, scene.lead_cutout_confidence,
+    )):
+      if not cutout_prev and cutout_now:
+        tags.append("lead_cutout_prediction_onset")
+      elif cutout_prev and not cutout_now:
+        tags.append("lead_cutout_prediction_resolved")
 
     if not prev.standstill and scene.standstill:
       tags.append("standstill_entry")
@@ -225,10 +259,34 @@ class GuardianTemporalTracker:
     hardware: dict[str, Any] | None = None,
     guardian_policy: GuardianPolicy | None = None,
   ) -> dict[str, Any]:
-    assessment = assess_guardian(active=active, shadow=shadow, hardware=hardware, policy=guardian_policy)
+    effective_guardian_policy = guardian_policy or GuardianPolicy()
+    if any(not math.isfinite(value) for value in asdict(effective_guardian_policy).values() if value is not None):
+      raise ValueError("Guardian heuristics must be finite")
+    assessment = assess_guardian(active=active, shadow=shadow, hardware=hardware, policy=effective_guardian_policy)
     base = assessment_to_dict(assessment)
     hard = list(base["hardIssues"])
     review = list(base["reviewIssues"])
+    if str(active.backend).lower() == str(shadow.backend).lower() and "same_backend_comparison" not in review:
+      review.append("same_backend_comparison")
+    action_integrity: list[str] = []
+    for role, action in (("active", active), ("shadow", shadow)):
+      if str(action.backend).lower() not in {"egpu", "qcom"}:
+        action_integrity.append(f"{role}_backend_unknown")
+      if type(action.frame_id) is not int or action.frame_id < 0:
+        action_integrity.append(f"{role}_frame_invalid")
+      if type(action.frame_age) is not int or action.frame_age < 0:
+        action_integrity.append(f"{role}_frame_age_invalid")
+      if action.model_execution_ms < 0:
+        action_integrity.append(f"{role}_execution_invalid")
+      timestamp = action.timestamp_mono_s
+      previous_timestamp = self.prev_action_timestamps.get(role)
+      if timestamp is not None and math.isfinite(timestamp):
+        if previous_timestamp is not None and timestamp <= previous_timestamp:
+          action_integrity.append(f"{role}_timestamp_not_monotonic")
+        self.prev_action_timestamps[role] = timestamp
+      else:
+        self.prev_action_timestamps.pop(role, None)
+    hard.extend(action_integrity)
 
     if scene.frame_id != active.frame_id or scene.frame_id != shadow.frame_id:
       hard.append("scene_action_frame_mismatch")
@@ -239,11 +297,33 @@ class GuardianTemporalTracker:
         review.append("action_timestamp_skew_unavailable")
       elif abs(active.timestamp_mono_s - shadow.timestamp_mono_s) > self.policy.max_action_timestamp_skew_s:
         hard.append("action_timestamp_skew_over_policy")
+      for role, action in (("active", active), ("shadow", shadow)):
+        if action.timestamp_mono_s is not None and abs(action.timestamp_mono_s - scene.timestamp_mono_s) > self.policy.max_action_timestamp_skew_s:
+          hard.append(f"{role}_scene_timestamp_skew_over_policy")
+
+    if hardware is not None:
+      hardware_timestamp = hardware.get("timestampMonoS")
+      if not isinstance(hardware_timestamp, (int, float)) or isinstance(hardware_timestamp, bool) or not math.isfinite(hardware_timestamp):
+        review.append("hardware_timestamp_unavailable")
+      elif active.timestamp_mono_s is not None and hardware_timestamp > active.timestamp_mono_s:
+        hard.append("hardware_timestamp_in_future")
+      if effective_guardian_policy.max_hardware_age_s is not None and (
+        "hardware_timestamp_unavailable" in review or active.timestamp_mono_s is None
+      ):
+        review.append("hardware_age_unavailable")
+    if base["disagreement"] is not None and any(
+      not math.isfinite(value) for value in base["disagreement"].values()
+    ):
+      hard.append("disagreement_nonfinite")
+      base["disagreement"] = None
 
     stop_mismatch = bool(active.should_stop) != bool(shadow.should_stop)
     temporal_tags, integrity = self._temporal_tags(scene, stop_mismatch=stop_mismatch)
+    if action_integrity or any(issue in hard for issue in ("scene_action_frame_mismatch", "active_nonfinite", "shadow_nonfinite")):
+      self.reset()
+      temporal_tags = []
     hard.extend(integrity)
-    scene_tags = _static_scene_tags(scene, self.policy)
+    scene_tags = [] if _scene_integrity(scene) else _static_scene_tags(scene, self.policy)
 
     hard = list(dict.fromkeys(hard))
     review = list(dict.fromkeys(review))
@@ -267,6 +347,8 @@ class GuardianTemporalTracker:
       "temporal": sorted(temporal_tags),
       "stopMismatch": stop_mismatch,
       "bucket": review_bucket,
+      "activeBackend": str(active.backend).lower(),
+      "shadowBackend": str(shadow.backend).lower(),
     }
 
     base.update({
@@ -280,10 +362,13 @@ class GuardianTemporalTracker:
       "reviewBucket": review_bucket,
       "reviewFingerprint": _review_fingerprint(fingerprint_payload),
       "carrotCutoutContext": {
-        "timeS": scene.lead_cutout_time_s,
-        "confidence": scene.lead_cutout_confidence,
+        "timeS": scene.lead_cutout_time_s if scene.lead_cutout_time_s is not None and math.isfinite(scene.lead_cutout_time_s) else None,
+        "confidence": scene.lead_cutout_confidence if scene.lead_cutout_confidence is not None and math.isfinite(scene.lead_cutout_confidence) else None,
         "active": _cutout_active(scene),
+        "valid": not any(issue.startswith("lead_cutout") for issue in hard),
       },
+      "temporalPolicy": asdict(self.policy),
+      "guardianPolicy": asdict(effective_guardian_policy),
       "temporalPolicyProvenance": "research-review-heuristics-not-official-comma-safety-thresholds",
       "controlAuthorization": False,
       "shadowPublishToControls": False,

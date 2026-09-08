@@ -7,6 +7,8 @@
   "properties": {
     "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "sourceBranch": {"type": "string", "minLength": 1},
+    "processId": {"type": "string", "minLength": 1},
+    "restartBoundary": {"type": "boolean"},
     "active": {"$ref": "#/$defs/action"},
     "shadow": {"$ref": "#/$defs/action"},
     "scene": {"$ref": "#/$defs/scene"},
@@ -58,6 +60,8 @@
         "startupFailed": {"type": "boolean"},
         "fallbackObserved": {"type": "boolean"},
         "modelOutputPresent": {"type": "boolean"},
+        "outputFrameId": {"type": ["integer", "null"], "minimum": 0},
+        "modelOutputFinite": {"type": ["boolean", "null"]},
         "hardwarePresent": {"type": ["boolean", "null"]},
         "compiledBig": {"type": ["boolean", "null"]},
         "telemetryValid": {"type": ["boolean", "null"]},

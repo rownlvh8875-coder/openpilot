@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from dataclasses import replace
 import json
+import math
 from pathlib import Path
+import re
 import subprocess
 from typing import Any
 
@@ -29,29 +32,67 @@ def git_identity(repo: Path) -> tuple[str | None, str | None]:
 
 
 def _optional_float(value: Any) -> float | None:
+  if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
+    raise ValueError("numeric replay value required")
   return float(value) if value is not None else None
 
 
+def _integer(value: Any) -> int:
+  if type(value) is not int:
+    raise ValueError("integer replay value required")
+  return value
+
+
+def _boolean(value: Any) -> bool:
+  if type(value) is not bool:
+    raise ValueError("boolean replay value required")
+  return value
+
+
+def _optional_bool(value: Any) -> bool | None:
+  return _boolean(value) if value is not None else None
+
+
+def _number(value: Any) -> float:
+  number = _optional_float(value)
+  if number is None:
+    raise ValueError("numeric replay value required")
+  return number
+
+
+def _fields(value: Any, *, required: set[str], optional: set[str], label: str) -> None:
+  if not isinstance(value, dict):
+    raise ValueError(f"{label}: object required")
+  missing = required - value.keys()
+  unknown = value.keys() - required - optional
+  if missing or unknown:
+    raise ValueError(f"{label}: missing fields {sorted(missing)!r}; unknown fields {sorted(str(key) for key in unknown)!r}")
+
+
 def _action(value: dict[str, Any]) -> ActionSnapshot:
+  _fields(value, required={"frameId", "frameAge", "modelExecutionMs", "curvature", "acceleration", "shouldStop", "backend", "timestampMonoS"},
+          optional=set(), label="action")
   return ActionSnapshot(
-    frame_id=int(value["frameId"]),
-    frame_age=int(value.get("frameAge", 0)),
-    model_execution_ms=float(value["modelExecutionMs"]),
-    curvature=float(value["curvature"]),
-    acceleration=float(value["acceleration"]),
-    should_stop=bool(value["shouldStop"]),
+    frame_id=_integer(value["frameId"]),
+    frame_age=_integer(value["frameAge"]),
+    model_execution_ms=_number(value["modelExecutionMs"]),
+    curvature=_number(value["curvature"]),
+    acceleration=_number(value["acceleration"]),
+    should_stop=_boolean(value["shouldStop"]),
     backend=str(value["backend"]),
     timestamp_mono_s=_optional_float(value.get("timestampMonoS")),
   )
 
 
 def _scene(value: dict[str, Any]) -> SceneContext:
+  _fields(value, required={"frameId", "timestampMonoS", "speedMps", "standstill", "leadPresent", "leadDistanceM", "leadRelSpeedMps"},
+          optional={"laneChangeState", "leadCutOutTimeS", "leadCutOutConfidence"}, label="scene")
   return SceneContext(
-    frame_id=int(value["frameId"]),
-    timestamp_mono_s=float(value["timestampMonoS"]),
-    speed_mps=float(value["speedMps"]),
-    standstill=bool(value["standstill"]),
-    lead_present=value.get("leadPresent") if isinstance(value.get("leadPresent"), bool) else None,
+    frame_id=_integer(value["frameId"]),
+    timestamp_mono_s=_number(value["timestampMonoS"]),
+    speed_mps=_number(value["speedMps"]),
+    standstill=_boolean(value["standstill"]),
+    lead_present=_optional_bool(value.get("leadPresent")),
     lead_distance_m=_optional_float(value.get("leadDistanceM")),
     lead_rel_speed_mps=_optional_float(value.get("leadRelSpeedMps")),
     lane_change_state=str(value["laneChangeState"]) if value.get("laneChangeState") is not None else None,
@@ -61,23 +102,29 @@ def _scene(value: dict[str, Any]) -> SceneContext:
 
 
 def _fault(value: dict[str, Any]) -> FaultObservation:
+  _fields(value, required={"frameId", "attemptedBackend", "activeBackend", "usbGpuActive", "startupFailed"}, optional={
+    "fallbackObserved", "modelOutputPresent", "hardwarePresent", "compiledBig", "telemetryValid", "telemetryFresh", "supplyFault",
+    "pcieReady", "usbSpeedMbps", "frameAge", "modelExecutionMs", "outputFrameId", "modelOutputFinite",
+  }, label="fault")
   return FaultObservation(
-    frame_id=int(value["frameId"]),
+    frame_id=_integer(value["frameId"]),
     attempted_backend=str(value["attemptedBackend"]),
     active_backend=str(value["activeBackend"]),
-    usbgpu_active=bool(value["usbGpuActive"]),
-    startup_failed=bool(value["startupFailed"]),
-    fallback_observed=bool(value.get("fallbackObserved", False)),
-    model_output_present=bool(value.get("modelOutputPresent", True)),
-    hardware_present=value.get("hardwarePresent") if isinstance(value.get("hardwarePresent"), bool) else None,
-    compiled_big=value.get("compiledBig") if isinstance(value.get("compiledBig"), bool) else None,
-    telemetry_valid=value.get("telemetryValid") if isinstance(value.get("telemetryValid"), bool) else None,
-    telemetry_fresh=value.get("telemetryFresh") if isinstance(value.get("telemetryFresh"), bool) else None,
-    supply_fault=bool(value.get("supplyFault", False)),
-    pcie_ready=value.get("pcieReady") if isinstance(value.get("pcieReady"), bool) else None,
-    usb_speed_mbps=int(value["usbSpeedMbps"]) if value.get("usbSpeedMbps") is not None else None,
-    frame_age=int(value["frameAge"]) if value.get("frameAge") is not None else None,
+    usbgpu_active=_boolean(value["usbGpuActive"]),
+    startup_failed=_boolean(value["startupFailed"]),
+    fallback_observed=_boolean(value.get("fallbackObserved", False)),
+    model_output_present=_boolean(value.get("modelOutputPresent", True)),
+    hardware_present=_optional_bool(value.get("hardwarePresent")),
+    compiled_big=_optional_bool(value.get("compiledBig")),
+    telemetry_valid=_optional_bool(value.get("telemetryValid")),
+    telemetry_fresh=_optional_bool(value.get("telemetryFresh")),
+    supply_fault=_boolean(value.get("supplyFault", False)),
+    pcie_ready=_optional_bool(value.get("pcieReady")),
+    usb_speed_mbps=_integer(value["usbSpeedMbps"]) if value.get("usbSpeedMbps") is not None else None,
+    frame_age=_integer(value["frameAge"]) if value.get("frameAge") is not None else None,
     model_execution_ms=_optional_float(value.get("modelExecutionMs")),
+    output_frame_id=_integer(value["outputFrameId"]) if value.get("outputFrameId") is not None else None,
+    model_output_finite=_optional_bool(value.get("modelOutputFinite")),
   )
 
 
@@ -101,6 +148,11 @@ def analyze_rows(
   guardian_policy: GuardianPolicy | None = None,
   temporal_policy: TemporalHeuristicPolicy | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+  if (
+    not isinstance(expected_source_head, str) or not re.fullmatch(r"[0-9a-f]{40}", expected_source_head)
+    or not isinstance(expected_source_branch, str) or not expected_source_branch.strip()
+  ):
+    raise ValueError("full source SHA and nonempty branch required")
   temporal = GuardianTemporalTracker(temporal_policy)
   faults = FaultSequenceTracker()
   output: list[dict[str, Any]] = []
@@ -111,31 +163,75 @@ def analyze_rows(
   temporal_counts: Counter[str] = Counter()
   fingerprint_counts: Counter[str] = Counter()
   fault_state_counts: Counter[str] = Counter()
+  process_ids: set[str] = set()
+  previous_process_id: str | None = None
+  process_identity_required = any(isinstance(row, dict) and "processId" in row for row in rows)
 
   for index, row in enumerate(rows):
-    source_head = str(row.get("sourceHead") or "")
-    source_branch = str(row.get("sourceBranch") or "")
+    _fields(row, required={"sourceHead", "sourceBranch", "active", "shadow", "scene"},
+            optional={"hardware", "fault", "processId", "restartBoundary"}, label=f"row {index}")
+    source_head = row.get("sourceHead")
+    source_branch = row.get("sourceBranch")
     if source_head != expected_source_head or source_branch != expected_source_branch:
       raise ValueError(f"row {index}: source identity mismatch")
+
+    process_id = row.get("processId")
+    restart = _boolean(row.get("restartBoundary", False))
+    if process_identity_required and (not isinstance(process_id, str) or not process_id.strip()):
+      raise ValueError(f"row {index}: process identity required on every row")
+    changed_process = index > 0 and process_id != previous_process_id
+    if restart and (not changed_process or process_id is None):
+      raise ValueError(f"row {index}: restart requires a new explicit process identity")
+    if changed_process:
+      if not restart or process_id in process_ids:
+        raise ValueError(f"row {index}: process change requires a new restart boundary")
+      temporal.reset()
+      faults.reset()
+    if process_id is not None:
+      process_ids.add(process_id)
+    previous_process_id = process_id
 
     active = _action(row["active"])
     shadow = _action(row["shadow"])
     scene = _scene(row["scene"])
-    hardware = row.get("hardware") if isinstance(row.get("hardware"), dict) else None
+    hardware = row.get("hardware")
+    if hardware is not None and not isinstance(hardware, dict):
+      raise ValueError(f"row {index}: hardware must be an object or null")
+    if hardware is not None:
+      for key in ("valid", "supplyFault"):
+        if key in hardware:
+          _boolean(hardware[key])
     guardian = temporal.observe(active=active, shadow=shadow, scene=scene, hardware=hardware, guardian_policy=guardian_policy)
 
     fault_result = None
-    if isinstance(row.get("fault"), dict):
+    if row.get("fault") is not None:
+      if not isinstance(row["fault"], dict):
+        raise ValueError(f"row {index}: fault must be an object or null")
       fault_obs = _fault(row["fault"])
-      fault_result = faults.observe(fault_obs)
       coherence_issues: list[str] = []
       if fault_obs.frame_id != active.frame_id:
         coherence_issues.append("fault_guardian_frame_mismatch")
       if str(fault_obs.active_backend).lower() != str(active.backend).lower():
         coherence_issues.append("fault_guardian_active_backend_mismatch")
+      if fault_obs.frame_age is not None and fault_obs.frame_age != active.frame_age:
+        coherence_issues.append("fault_guardian_frame_age_mismatch")
+      if fault_obs.output_frame_id is not None and fault_obs.output_frame_id != active.frame_id:
+        coherence_issues.append("fault_guardian_output_frame_mismatch")
+      if fault_obs.model_output_finite is True and not all(math.isfinite(value) for value in (
+        active.curvature, active.acceleration, active.model_execution_ms,
+      )):
+        coherence_issues.append("fault_guardian_output_finiteness_mismatch")
+      if not coherence_issues and fault_obs.frame_age is None:
+        # The paired active snapshot supplies output age when the fault record
+        # omitted it; a stale active output cannot prove a same-frame rerun.
+        fault_obs = replace(fault_obs, frame_age=active.frame_age)
+      # Mismatched evidence must not mutate the process fault history.
+      fault_result = (FaultSequenceTracker() if coherence_issues else faults).observe(fault_obs)
       if coherence_issues:
         fault_result["hardIssues"] = list(dict.fromkeys(list(fault_result.get("hardIssues", [])) + coherence_issues))
         fault_result["evidenceCoherent"] = False
+        if fault_result["sameFrameOutputPreserved"] is True:
+          fault_result["sameFrameOutputPreserved"] = None
       else:
         fault_result["evidenceCoherent"] = True
       fault_state_counts.update([str(fault_result["state"])])
@@ -147,6 +243,8 @@ def analyze_rows(
       "sourceHead": source_head,
       "sourceBranch": source_branch,
       "frameId": int(active.frame_id),
+      "processId": process_id,
+      "restartBoundary": restart,
       "guardian": guardian,
       "fault": fault_result,
       "combinedReviewBucket": bucket,
@@ -187,6 +285,9 @@ def analyze_rows(
       "cut_in_candidate_heuristic requires independent video/radar/lane review.",
       "Carrot cut-out context is descriptive and never authorizes control changes.",
       "review buckets prioritize human/root-cause review and never authorize controls.",
+      "ROOT_CAUSE requests investigation of evidence faults; it does not identify a physical cause.",
+      "Process boundaries are exporter assertions and are not hardware-verified restarts.",
+      "sameFrameOutputPreserved describes output proof only; hardIssues separately assess latch and sequence consistency.",
     ],
     "controlAuthorization": False,
     "publicRoadAuthorization": False,

@@ -15,11 +15,11 @@ SOURCES = (
   "openpilot/selfdrive/carrot/radar/tools/radar_validation_replay.py",
   "openpilot/selfdrive/carrot/radar/tools/radar_web_export.py",
   "openpilot/selfdrive/carrot/cluster",
-  "openpilot/selfdrive/controls/lib/cutin_alert.py",
-  "openpilot/selfdrive/controls/lib/cutin_helpers.py",
+  # Keep the same source families as radar_web_export.source_version(), so a
+  # bundle and a checkout of this commit have the same replay source identity.
+  "openpilot/selfdrive/controls/lib",
   "openpilot/cereal",
-  "opendbc_repo/opendbc/car/car.capnp",
-  "opendbc_repo/opendbc/dbc",
+  "opendbc_repo/opendbc",
 )
 
 

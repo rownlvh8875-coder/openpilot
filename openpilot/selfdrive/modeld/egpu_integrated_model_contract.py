@@ -89,7 +89,7 @@ class ModelPairContract:
   schema_version: int = SCHEMA_VERSION
 
   def validate(self) -> None:
-    if self.schema_version != SCHEMA_VERSION:
+    if type(self.schema_version) is not int or self.schema_version != SCHEMA_VERSION:
       raise ValueError(f"unsupported model contract schema: {self.schema_version}")
     self.source.validate()
     if not isinstance(self.generation, int) or isinstance(self.generation, bool) or self.generation < 0:
@@ -99,14 +99,18 @@ class ModelPairContract:
       raise ValueError("baseline contract requires one pinned eGPU BIG slot")
     if self.registry.qcom.artifact is None or not self.registry.qcom.builtin:
       raise ValueError("QCOM slot must be builtin and bind the source LFS artifact")
+    if self.registry.qcom.source != "carrot-git-lfs":
+      raise ValueError("QCOM slot source must be carrot-git-lfs")
+    if self.registry.egpu.source != "carrot-big-model-manifest":
+      raise ValueError("eGPU slot source must be carrot-big-model-manifest")
     if self.registry.fallback_slot != SLOT_QCOM:
       raise ValueError("fallback slot must remain QCOM")
     if self.registry.qcom.generation != self.generation or self.registry.egpu.generation != self.generation:
       raise ValueError("contract, BIG, and SMALL generations must match exactly")
     if self.registry.qcom.nominal_hz != self.registry.egpu.nominal_hz:
       raise ValueError("BIG and SMALL nominal frequency must match")
-    if self.registry.qcom.runner != self.registry.egpu.runner:
-      raise ValueError("baseline BIG/SMALL runner family must match")
+    if self.registry.qcom.runner != "tinygrad" or self.registry.egpu.runner != "tinygrad":
+      raise ValueError("baseline BIG/SMALL runner family must be tinygrad")
     expected = contract_id(self)
     if self.contract_id and self.contract_id != expected:
       raise ValueError("contract id mismatch")
@@ -245,9 +249,31 @@ def contract_payload(contract: ModelPairContract) -> dict[str, Any]:
   return payload
 
 
+def _matches_serialized_value(raw: Any, canonical: Any) -> bool:
+  """Compare the imported document without accepting lossy parser coercions.
+
+  Registry parsing supports legacy aliases/defaults outside this contract. A
+  contract identified by its content hash must retain every reviewed field and JSON type;
+  only integer/float representations of number-valued frequency are equivalent.
+  """
+  if isinstance(canonical, dict):
+    return (isinstance(raw, dict) and raw.keys() == canonical.keys()
+            and all(_matches_serialized_value(raw[key], value) for key, value in canonical.items()))
+  if isinstance(canonical, list):
+    return (isinstance(raw, list) and len(raw) == len(canonical)
+            and all(_matches_serialized_value(one, two) for one, two in zip(raw, canonical)))
+  if isinstance(canonical, float):
+    return isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw == canonical
+  return type(raw) is type(canonical) and raw == canonical
+
+
 def contract_from_dict(value: Any) -> ModelPairContract:
   if not isinstance(value, dict) or set(value) != CONTRACT_KEYS:
     raise ValueError("contract must contain exactly the reviewed top-level fields")
+  if type(value["schemaVersion"]) is not int or type(value["generation"]) is not int:
+    raise ValueError("contract schemaVersion and generation must be integers")
+  if not isinstance(value["contractId"], str) or not SHA256_RE.fullmatch(value["contractId"]):
+    raise ValueError("imported contractId must be a 64-character lowercase SHA256")
   if value.get("policy") != CONTRACT_POLICY:
     raise ValueError("contract policy mismatch")
   source_raw = value.get("source")
@@ -275,14 +301,20 @@ def contract_from_dict(value: Any) -> ModelPairContract:
     interface_blobs=tuple(blobs),
     interface_fingerprint=str(source_raw["interfaceFingerprint"]),
   )
+  try:
+    registry = registry_from_dict(registry_raw)
+  except (TypeError, ValueError, OverflowError) as e:
+    raise ValueError("invalid registry contract value") from e
   contract = ModelPairContract(
     source=source,
-    generation=int(value.get("generation", -1)),
-    registry=registry_from_dict(registry_raw),
-    contract_id=str(value.get("contractId", "")),
-    schema_version=int(value.get("schemaVersion", 0)),
+    generation=value["generation"],
+    registry=registry,
+    contract_id=value["contractId"],
+    schema_version=value["schemaVersion"],
   )
   contract.validate()
+  if not _matches_serialized_value(value, contract_payload(contract)):
+    raise ValueError("contract fields and types must match the reviewed serialization exactly")
   return contract
 
 

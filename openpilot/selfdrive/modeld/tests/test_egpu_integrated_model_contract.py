@@ -94,6 +94,82 @@ class TestModelPairContract(unittest.TestCase):
     with self.assertRaises(ValueError):
       contract_from_dict(payload)
 
+  def test_import_requires_a_nonempty_sha256_contract_id(self):
+    for contract_id in ("", None, 0, False, [], {}, "A" * 64):
+      with self.subTest(contract_id=contract_id):
+        payload = contract_payload(self.current)
+        payload["contractId"] = contract_id
+        with self.assertRaises(ValueError):
+          contract_from_dict(payload)
+
+  def test_import_rejects_coerced_top_level_integers(self):
+    for field, values in (("generation", (False, "0", 0.0, 0.9, -0.5, None)),
+                          ("schemaVersion", (True, "1", 1.0, 1.9, None))):
+      for value in values:
+        with self.subTest(field=field, value=value):
+          payload = contract_payload(self.current)
+          payload[field] = value
+          with self.assertRaises(ValueError):
+            contract_from_dict(payload)
+
+  def test_import_rejects_numeric_policy_flags(self):
+    for scope in ("policy", "registry"):
+      payload = contract_payload(self.current)
+      policy = payload["policy"] if scope == "policy" else payload["registry"]["policy"]
+      for field, value in tuple(policy.items()):
+        if isinstance(value, bool):
+          with self.subTest(scope=scope, field=field):
+            policy[field] = int(value)
+            with self.assertRaises(ValueError):
+              contract_from_dict(payload)
+            policy[field] = value
+
+  def test_import_rejects_coerced_registry_values(self):
+    mutations = (
+      (("schemaVersion",), True),
+      (("slots", "qcom", "generation"), "0"),
+      (("slots", "egpu", "generation"), 0.9),
+      (("slots", "qcom", "nominal_hz"), "20.0"),
+      (("slots", "qcom", "builtin"), 1),
+      (("slots", "egpu", "builtin"), None),
+      (("slots", "qcom", "control_eligible"), 0),
+      (("slots", "egpu", "control_eligible"), []),
+      (("slots", "qcom", "artifact", "size"), float(QCOM_SIZE)),
+      (("slots", "qcom", "artifact", "sha256"), QCOM_SHA.upper()),
+    )
+    for path, value in mutations:
+      with self.subTest(path=path, value=value):
+        payload = contract_payload(self.current)
+        row = payload["registry"]
+        for key in path[:-1]:
+          row = row[key]
+        row[path[-1]] = value
+        with self.assertRaises(ValueError):
+          contract_from_dict(payload)
+
+  def test_import_rejects_dropped_or_defaulted_registry_fields(self):
+    for path in (("slots", "qcom"), ("slots", "qcom", "artifact")):
+      with self.subTest(path=path):
+        payload = contract_payload(self.current)
+        row = payload["registry"]
+        for key in path:
+          row = row[key]
+        row["unreviewed"] = "ignored before hashing"
+        with self.assertRaises(ValueError):
+          contract_from_dict(payload)
+    for field in ("generation", "control_eligible"):
+      with self.subTest(missing=field):
+        payload = contract_payload(self.current)
+        del payload["registry"]["slots"]["qcom"][field]
+        with self.assertRaises(ValueError):
+          contract_from_dict(payload)
+
+  def test_import_accepts_integer_representation_of_numeric_frequency(self):
+    payload = contract_payload(self.current)
+    for slot in payload["registry"]["slots"].values():
+      slot["nominal_hz"] = 20
+    self.assertEqual(contract_from_dict(payload).resolved_contract_id, self.current.resolved_contract_id)
+
   def test_policy_tamper_is_rejected_even_if_contract_id_is_unchanged(self):
     payload = contract_payload(self.current)
     payload["policy"]["runtimeHotSwap"] = True
@@ -118,6 +194,33 @@ class TestModelPairContract(unittest.TestCase):
     broken = rebuild(self.current, registry=registry)
     with self.assertRaises(ValueError):
       broken.validate()
+
+  def test_slot_sources_must_match_reviewed_contract_origins(self):
+    for slot_name, source in (("qcom", "carrot-builtin"), ("egpu", "unreviewed-manifest")):
+      with self.subTest(slot=slot_name):
+        slot = replace(getattr(self.current.registry, slot_name), source=source)
+        registry = replace(self.current.registry, **{slot_name: slot})
+        # No stale contract ID can account for this rejection: an otherwise
+        # valid draft must enforce the source constants before generating an ID.
+        draft = rebuild(self.current, registry=registry)
+        with self.assertRaisesRegex(ValueError, "slot source must be"):
+          draft.validate()
+
+  def test_matching_unreviewed_runner_family_is_rejected(self):
+    registry = replace(self.current.registry,
+                       qcom=replace(self.current.registry.qcom, runner="onnxruntime"),
+                       egpu=replace(self.current.registry.egpu, runner="onnxruntime"))
+    draft = rebuild(self.current, registry=registry)
+    with self.assertRaisesRegex(ValueError, "runner family must be tinygrad"):
+      draft.validate()
+
+  def test_each_slot_must_use_reviewed_runner_family(self):
+    for slot_name in ("qcom", "egpu"):
+      with self.subTest(slot=slot_name):
+        slot = replace(getattr(self.current.registry, slot_name), runner="onnxruntime")
+        draft = rebuild(self.current, registry=replace(self.current.registry, **{slot_name: slot}))
+        with self.assertRaisesRegex(ValueError, "runner family must be tinygrad"):
+          draft.validate()
 
   def test_canonical_branch_enforcement_is_explicit(self):
     binding = git_source_binding(ROOT)

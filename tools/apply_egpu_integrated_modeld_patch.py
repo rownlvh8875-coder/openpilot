@@ -115,8 +115,10 @@ def git_hash(path: Path) -> str:
 
 
 def git_hash_text(source: str) -> str:
-  p = subprocess.run(["git", "hash-object", "--stdin"], input=source, text=True, capture_output=True, check=True)
-  return p.stdout.strip()
+  # Text-mode stdin translates LF to CRLF on Windows, corrupting the exact
+  # reviewed Git-blob check even when marker removal restored the source.
+  p = subprocess.run(["git", "hash-object", "--stdin"], input=source.encode("utf-8"), capture_output=True, check=True)
+  return p.stdout.decode("ascii").strip()
 
 
 def insert_once(source: str, anchor: str, replacement: str, name: str) -> str:

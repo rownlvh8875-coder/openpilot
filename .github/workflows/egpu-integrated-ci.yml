@@ -13,6 +13,7 @@ on:
       - dev-integrated-carrot-e893-rebase
       - dev-integrated-guardian-replay-faults-e893
       - dev-integrated-model-contracts
+      - dev-integrated-provenance-fault-review-20260908
   pull_request:
     branches:
       - carrot-wip
@@ -72,6 +73,8 @@ jobs:
             tools/egpu_integrated_guardian_replay.py \
             tools/egpu_integrated_review_queue.py \
             tools/egpu_integrated_source_compat.py \
+            tools/carrot_route_vault/build_bundle.py \
+            openpilot/selfdrive/carrot/radar/tools/radar_web_export.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
       - name: Verify modeld patch restores reviewed Carrot source
@@ -84,6 +87,7 @@ jobs:
           python -m unittest -v \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_radar_provenance \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_carrot_cutout \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
@@ -95,6 +99,7 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_guardian_replay_faults \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_offline_integrity \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_model_contract
 
@@ -262,6 +267,7 @@ jobs:
         run: |
           test ! -e tools/egpu_integrated_s2b_recorder.py
           test ! -e tools/egpu_integrated_s2b_qualification.py
+          test ! -e tools/egpu_integrated_s4c_runner.py
           echo 's2bExecutionDeferred=PASS'
 
       - name: Verify commissioning policy schemas have no hidden defaults
