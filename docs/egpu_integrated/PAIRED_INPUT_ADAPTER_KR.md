@@ -183,10 +183,13 @@ python tools/egpu_integrated_paired_evidence_discovery.py \
 
 여러 저장장치는 `--root`를 반복해서 지정한다. symlink/junction 디렉터리는 따라가지 않으며, `--max-depth`와 `--max-files`로 대규모 NAS 탐색 범위를 제한할 수 있다.
 
+`--no-verify-paired`는 대규모 저장장치에서 위치만 빠르게 찾는 용도다. 이 모드에서 exact evidence 디렉터리를 찾더라도 `INVALID`로 판정하지 않고 `PAIRED_EVIDENCE_FOUND_NOT_VERIFIED`로 분리한다. 실제 분석 전에는 반드시 검증 모드로 다시 실행해야 한다.
+
 판정은 다음을 구분한다.
 
 - `VERIFIED_PAIRED_EVIDENCE_FOUND`: self-contained adapter evidence가 기존 verifier를 통과함
 - `INVALID_PAIRED_EVIDENCE_FOUND`: adapter 형태는 있으나 source/receipt/hash 재검증 실패
+- `PAIRED_EVIDENCE_FOUND_NOT_VERIFIED`: `--no-verify-paired` 빠른 탐색에서 exact adapter 형태를 찾았지만 검증은 아직 수행하지 않음
 - `LOOSE_PAIRED_CANDIDATE_FOUND`: SMALL/BIG 또는 paired JSONL은 있으나 exact provenance 부족
 - `SHADOW_OUTPUT_ONLY_FOUND`: shadow 출력은 있으나 matching active output/provenance 부족
 - `RAW_ROUTE_ONLY_FOUND`: rlog/qlog만 존재하며 동일 입력 BIG/SMALL 결과를 재구성할 수 없음
