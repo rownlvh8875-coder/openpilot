@@ -4,9 +4,11 @@ from tools.egpu_integrated_s2a_build_evidence import assemble
 
 
 class TestS2AEvidenceAssembly(unittest.TestCase):
-  def summary(self, leg):
+  def summary(self, leg, head="abc123", branch="carrot-wip-integrated-v6"):
     return {
       "leg": leg,
+      "sourceHead": head,
+      "sourceBranch": branch,
       "samples": 100,
       "p50ModelExecutionMs": 35.0,
       "p95ModelExecutionMs": 40.0,
@@ -34,6 +36,8 @@ class TestS2AEvidenceAssembly(unittest.TestCase):
       self.summary("S2A_OFF_BEFORE"),
     ])
     self.assertEqual(list(evidence["legs"]), ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"])
+    self.assertEqual(evidence["sourceHead"], "abc123")
+    self.assertEqual(evidence["sourceBranch"], "carrot-wip-integrated-v6")
     self.assertFalse(evidence["controlAuthorization"])
     self.assertFalse(evidence["shadowAuthorization"])
 
@@ -47,6 +51,22 @@ class TestS2AEvidenceAssembly(unittest.TestCase):
         self.summary("S2A_OFF_BEFORE"),
         self.summary("S2A_TELEMETRY_ON"),
         self.summary("S2A_TELEMETRY_ON"),
+      ])
+
+  def test_source_head_mismatch_rejected(self):
+    with self.assertRaises(ValueError):
+      assemble([
+        self.summary("S2A_OFF_BEFORE"),
+        self.summary("S2A_TELEMETRY_ON", head="different"),
+        self.summary("S2A_OFF_AFTER"),
+      ])
+
+  def test_source_branch_mismatch_rejected(self):
+    with self.assertRaises(ValueError):
+      assemble([
+        self.summary("S2A_OFF_BEFORE"),
+        self.summary("S2A_TELEMETRY_ON", branch="other"),
+        self.summary("S2A_OFF_AFTER"),
       ])
 
 
