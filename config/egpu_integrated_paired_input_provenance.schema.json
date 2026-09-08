@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Integrated eGPU provided paired-input provenance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "source", "producer", "inputs", "modelContractId", "mapping", "pairing", "policy"],
+  "properties": {
+    "schemaVersion": {"type": "integer", "const": 1},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["head", "branch"],
+      "properties": {
+        "head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "branch": {"type": "string", "minLength": 1}
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "head", "extractorPath", "extractorSha256", "extractorSize", "sameCameraInputId"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "extractorPath": {"const": "tools/extract_model_actions_from_log.py"},
+        "extractorSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "extractorSize": {"type": "integer", "minimum": 1},
+        "sameCameraInputId": {"type": "string", "minLength": 1}
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["small", "big"],
+      "properties": {
+        "small": {"$ref": "#/$defs/input"},
+        "big": {"$ref": "#/$defs/input"}
+      }
+    },
+    "modelContractId": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["activeInput", "shadowInput"],
+      "properties": {
+        "activeInput": {"enum": ["small", "big"]},
+        "shadowInput": {"enum": ["small", "big"]}
+      }
+    },
+    "pairing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "timestampFallback", "sameCameraInputAsserted"],
+      "properties": {
+        "method": {"const": "frameId"},
+        "timestampFallback": {"const": false},
+        "sameCameraInputAsserted": {"const": true}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["producerAssertionsVerified", "modelExecutionVerified", "controlAuthorization", "publicRoadAuthorization"],
+      "properties": {
+        "producerAssertionsVerified": {"const": false},
+        "modelExecutionVerified": {"const": false},
+        "controlAuthorization": {"const": false},
+        "publicRoadAuthorization": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size", "sourceLabel", "modelId", "backend"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "size": {"type": "integer", "minimum": 1},
+        "sourceLabel": {"type": "string", "minLength": 1},
+        "modelId": {"type": "string", "minLength": 1},
+        "backend": {"enum": ["qcom", "egpu"]}
+      }
+    }
+  }
+}

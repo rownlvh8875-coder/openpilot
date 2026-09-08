@@ -41,7 +41,7 @@
 
 기존 정책의 양수·음수·정수 제약을 그대로 사용합니다. `close_acquisition_m >= close_lead_m`과 `0 < standstill_speed_mps < creep_speed_mps`의 관계도 실행 시 검사합니다. 표준 JSON Schema로 표현하지 못하는 필드 간 숫자 비교는 기존 정책 validator가 담당합니다. 새 차량 안전 임계값을 정하지 않습니다.
 
-분석 관련 소스에 미커밋 변경이 있으면 묶음을 만들지 않습니다. 변경 사항을 검토하여 커밋하고, 그 분석기 커밋에서 실행해야 합니다. 분석기는 로컬 의존성과 package initializer를 포함한 13개의 Python 소스를 추적하며, `sourceNormalization: utf8-lf`에 따라 CRLF를 LF로 정규화한 소스가 커밋된 내용과 일치하는지 확인합니다. 실제 import된 모듈의 위치도 확인하며 import 이후 파일이 바뀌면 새 프로세스로 다시 실행해야 합니다. 기록된 분석기 HEAD가 실제 Git commit이고 해당 커밋의 소스 hash가 일치하는지도 검증합니다. 이 정규화는 분석기 Python 소스의 운영체제별 개행 차이를 처리합니다. 입력·결과 파일은 정규화하지 않고 정확한 바이트를 해시합니다. 입력 자료의 source와 분석기의 source는 서로 다른 역할이며, 분석기 HEAD를 입력 행에 복사해서 원래 출처를 바꾸면 안 됩니다.
+분석 관련 소스에 미커밋 변경이 있으면 묶음을 만들지 않습니다. 변경 사항을 검토하여 커밋하고, 그 분석기 커밋에서 실행해야 합니다. 분석기는 로컬 의존성과 package initializer를 포함한 14개의 Python 소스를 추적하며, `sourceNormalization: utf8-lf`에 따라 CRLF를 LF로 정규화한 소스가 커밋된 내용과 일치하는지 확인합니다. 실제 import된 모듈의 위치도 확인하며 import 이후 파일이 바뀌면 새 프로세스로 다시 실행해야 합니다. 기록된 분석기 HEAD가 실제 Git commit이고 해당 커밋의 소스 hash가 일치하는지도 검증합니다. 이 정규화는 분석기 Python 소스의 운영체제별 개행 차이를 처리합니다. 입력·결과 파일은 정규화하지 않고 정확한 바이트를 해시합니다. 입력 자료의 source와 분석기의 source는 서로 다른 역할이며, 분석기 HEAD를 입력 행에 복사해서 원래 출처를 바꾸면 안 됩니다.
 
 ## 만들기
 
@@ -102,3 +102,23 @@ python tools/egpu_integrated_review_bundle.py verify --bundle "<bundle-directory
 `sameFrameOutputPreserved`는 행에 선언된 프레임·나이·유한값 증거의 일관성을 나타냅니다. SMALL latch나 상태 전이 오류가 동시에 존재할 수 있습니다. `processId`와 `restartBoundary`는 입력 생산자의 선언이며 실제 프로세스 재시작을 검증하지 않습니다. frame/time gap을 넘어 발생 시점이나 해제 시점을 추론하지 않습니다.
 
 이 오프라인 검토가 끝나도 실기기 단계에는 별도 명시적인 작업 지시와 적용할 HEAD·branch에 묶인 새 evidence가 필요합니다.
+
+## 2026-09-08 후속: source-bound paired 입력 경로
+
+실제 `EGPU-Future` SMALL/BIG extractor 결과를 연결할 때는 일반 `provided_offline`보다 `provided_paired_offline`을 사용한다.
+
+이 경로는 `tools/egpu_integrated_paired_input_adapter.py`가 만든 self-contained evidence directory를 요구하며 다음 원본까지 review bundle에 포함한다.
+
+```text
+small-input.jsonl
+big-input.jsonl
+producer-extractor.py
+paired-source-provenance.json
+input-provenance.json
+```
+
+검증기는 이 원본에서 `rows.jsonl`을 다시 계산한 뒤 기존 Guardian/fault 결과까지 재계산한다. timestamp fallback과 backend 자동추정은 허용하지 않는다.
+
+현재 검색된 GitHub/로컬 자료에는 실제 BIG/SMALL paired JSONL이 없으므로 이 새 경로의 검증은 hardware-free 합성 입력에 한정된다. 실제 모델 실행 또는 차량 성능 검증으로 해석하지 않는다.
+
+세부 입력 형식과 실행 순서는 `docs/egpu_integrated/PAIRED_INPUT_ADAPTER_KR.md`를 따른다.

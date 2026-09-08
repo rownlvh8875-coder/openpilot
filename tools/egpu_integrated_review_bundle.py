@@ -25,14 +25,27 @@ from openpilot.selfdrive.modeld.egpu_integrated_model_contract import (
   DEFAULT_QCOM_POINTER, EXPECTED_BRANCH, ModelPairContract, contract_from_dict, parse_git_lfs_pointer_text,
 )
 from tools.egpu_integrated_guardian_replay import analyze_rows
+from tools.egpu_integrated_paired_input_adapter import (
+  ADAPTER_OUTPUT_FILES, BIG_INPUT_FILE, CONTRACT_FILE, PRODUCER_SOURCE_FILE, PROVENANCE_DECLARATION_FILE, RECEIPT_FILE,
+  ROWS_FILE, SMALL_INPUT_FILE, verify_adapter_evidence_bytes,
+)
 from tools.egpu_integrated_review_queue import build_review_queue
 
 ROOT = Path(__file__).resolve().parents[1]
 STAGE = "OFFLINE_REPLAY_REVIEW_BUNDLE"
 INPUT_FILES = ("rows.jsonl", "model-contract.json", "policy.json")
+PAIRED_EXTRA_FILES = (SMALL_INPUT_FILE, BIG_INPUT_FILE, PRODUCER_SOURCE_FILE, PROVENANCE_DECLARATION_FILE, RECEIPT_FILE)
 RESULT_FILES = ("events.jsonl", "summary.json", "review-queue.json")
 MEMBER_FILES = INPUT_FILES + RESULT_FILES
-EVIDENCE_KINDS = ("synthetic", "provided_offline")
+EVIDENCE_KINDS = ("synthetic", "provided_offline", "provided_paired_offline")
+
+
+def _input_files(evidence_kind: str) -> tuple[str, ...]:
+  return INPUT_FILES + (PAIRED_EXTRA_FILES if evidence_kind == "provided_paired_offline" else ())
+
+
+def _member_files(evidence_kind: str) -> tuple[str, ...]:
+  return _input_files(evidence_kind) + RESULT_FILES
 BOUNDARY = {
   "controlAuthorization": False,
   "runtimeActivationAuthorization": False,
@@ -46,6 +59,7 @@ BOUNDARY = {
 BUNDLE_POLICY = {"includeObserve": True, **BOUNDARY}
 ANALYZER_PATHS = (
   "tools/egpu_integrated_review_bundle.py",
+  "tools/egpu_integrated_paired_input_adapter.py",
   "tools/egpu_integrated_guardian_replay.py",
   "tools/egpu_integrated_review_queue.py",
   "openpilot/selfdrive/modeld/egpu_integrated_guardian.py",
@@ -237,11 +251,22 @@ def _policy(raw: bytes) -> tuple[GuardianPolicy, TemporalHeuristicPolicy]:
   return policies[0], policies[1]
 
 
-def _compute(inputs: dict[str, bytes], source: dict[str, str]) -> tuple[dict[str, bytes], str]:
+def _compute(inputs: dict[str, bytes], source: dict[str, str], evidence_kind: str) -> tuple[dict[str, bytes], str]:
   contract = contract_from_dict(_load_json(inputs["model-contract.json"]))
   if {"head": contract.source.head, "branch": contract.source.branch} != source:
     raise ValueError("declared model contract source identity mismatch")
   _verify_contract_source(contract)
+  if evidence_kind == "provided_paired_offline":
+    missing = set(PAIRED_EXTRA_FILES) - inputs.keys()
+    if missing:
+      raise ValueError(f"provided_paired_offline missing paired evidence members: {sorted(missing)!r}")
+    verify_adapter_evidence_bytes(
+      small=inputs[SMALL_INPUT_FILE], big=inputs[BIG_INPUT_FILE], producer_source=inputs[PRODUCER_SOURCE_FILE],
+      provenance=inputs[PROVENANCE_DECLARATION_FILE], rows=inputs[ROWS_FILE], receipt=inputs[RECEIPT_FILE],
+      contract=contract, expected_source=source,
+    )
+  elif any(name in inputs for name in PAIRED_EXTRA_FILES):
+    raise ValueError("paired source evidence is only valid for provided_paired_offline")
   guardian, temporal = _policy(inputs["policy.json"])
   rows = [_load_json(line) for line in inputs["rows.jsonl"].splitlines() if line.strip()]
   if not rows:
@@ -257,17 +282,32 @@ def _compute(inputs: dict[str, bytes], source: dict[str, str]) -> tuple[dict[str
 
 
 def build_review_bundle(rows_path: Path, contract_path: Path, policy_path: Path, output: Path, *,
-                        expected_source_head: str, expected_source_branch: str, evidence_kind: str) -> dict[str, Any]:
+                        expected_source_head: str, expected_source_branch: str, evidence_kind: str,
+                        paired_evidence_dir: Path | None = None) -> dict[str, Any]:
   source = _source_identity(expected_source_head, expected_source_branch)
   if evidence_kind not in EVIDENCE_KINDS:
-    raise ValueError("explicit evidence kind required: synthetic or provided_offline")
+    raise ValueError("explicit evidence kind required: synthetic, provided_offline, or provided_paired_offline")
+  if evidence_kind == "provided_paired_offline" and paired_evidence_dir is None:
+    raise ValueError("provided_paired_offline requires --paired-evidence-dir")
+  if evidence_kind != "provided_paired_offline" and paired_evidence_dir is not None:
+    raise ValueError("--paired-evidence-dir is only valid for provided_paired_offline")
   if output.exists() or output.is_symlink() or output.is_junction():
     raise ValueError("output already exists; choose a new directory")
   inputs = {name: _read_file(path) for name, path in zip(INPUT_FILES, (rows_path, contract_path, policy_path))}
+  if paired_evidence_dir is not None:
+    if paired_evidence_dir.is_symlink() or paired_evidence_dir.is_junction() or not paired_evidence_dir.is_dir():
+      raise ValueError("regular paired evidence directory required")
+    if {path.name for path in paired_evidence_dir.iterdir()} != set(ADAPTER_OUTPUT_FILES):
+      raise ValueError("paired evidence directory has missing or extra members")
+    if inputs[ROWS_FILE] != _read_file(paired_evidence_dir / ROWS_FILE):
+      raise ValueError("--rows must be the exact rows.jsonl from --paired-evidence-dir")
+    if inputs["model-contract.json"] != _read_file(paired_evidence_dir / CONTRACT_FILE):
+      raise ValueError("--contract must be the exact model-contract.json from --paired-evidence-dir")
+    for name in PAIRED_EXTRA_FILES:
+      inputs[name] = _read_file(paired_evidence_dir / name)
   analyzer = _capture_analyzer_identity()
   _validate_analyzer(analyzer)
-  results, contract_id = _compute(inputs, source)
-  # Catch source edits during analysis before labelling outputs as committed.
+  results, contract_id = _compute(inputs, source, evidence_kind)
   if _capture_analyzer_identity() != analyzer:
     raise ValueError("analyzer source changed during analysis")
   members = {**inputs, **results}
@@ -277,9 +317,6 @@ def build_review_bundle(rows_path: Path, contract_path: Path, policy_path: Path,
     "files": {name: {"sha256": _sha256(data), "size": len(data)} for name, data in members.items()},
   }
   manifest["bundleId"] = _bundle_id(manifest)
-  # Exclusive directory/file creation refuses concurrent outputs on Windows and
-  # POSIX. Manifest is the final completeness marker. On I/O failure retain the
-  # incomplete directory for inspection; never delete or replace existing data.
   output.parent.mkdir(parents=True, exist_ok=True)
   output.mkdir(exist_ok=False)
   for name, data in {**members, "manifest.json": _json_bytes(manifest)}.items():
@@ -295,8 +332,6 @@ def verify_review_bundle(bundle: Path, *, expected_bundle_id: str, expected_sour
     raise ValueError("externally retained expected bundle ID required")
   if bundle.is_symlink() or bundle.is_junction() or not bundle.is_dir():
     raise ValueError("regular bundle directory required")
-  if {path.name for path in bundle.iterdir()} != set(MEMBER_FILES) | {"manifest.json"}:
-    raise ValueError("bundle has missing or extra members")
   manifest = _load_json(_read_file(bundle / "manifest.json"))
   _exact_keys(manifest, {"schemaVersion", "stage", "source", "evidenceKind", "declaredModelContractId",
                          "analyzer", "policy", "files", "bundleId"}, "manifest")
@@ -304,6 +339,9 @@ def verify_review_bundle(bundle: Path, *, expected_bundle_id: str, expected_sour
     raise ValueError("unsupported bundle manifest")
   if manifest["source"] != source or manifest["evidenceKind"] not in EVIDENCE_KINDS:
     raise ValueError("bundle source or evidence kind mismatch")
+  member_files = _member_files(manifest["evidenceKind"])
+  if {path.name for path in bundle.iterdir()} != set(member_files) | {"manifest.json"}:
+    raise ValueError("bundle has missing or extra members")
   if _json_bytes(manifest["policy"]) != _json_bytes(BUNDLE_POLICY):
     raise ValueError("bundle authorization/review policy mismatch")
   if manifest["bundleId"] != expected_bundle_id or _bundle_id(manifest) != expected_bundle_id:
@@ -313,9 +351,9 @@ def verify_review_bundle(bundle: Path, *, expected_bundle_id: str, expected_sour
   current_analyzer = _capture_analyzer_identity()
   if current_analyzer["sourceFingerprint"] != manifest["analyzer"]["sourceFingerprint"]:
     raise ValueError("verifier analyzer source differs from the recorded analyzer")
-  _exact_keys(manifest["files"], set(MEMBER_FILES), "manifest files")
+  _exact_keys(manifest["files"], set(member_files), "manifest files")
   members = {}
-  for name in MEMBER_FILES:
+  for name in member_files:
     entry = manifest["files"][name]
     _exact_keys(entry, {"sha256", "size"}, "member digest")
     if type(entry["size"]) is not int or entry["size"] < 0:
@@ -324,7 +362,8 @@ def verify_review_bundle(bundle: Path, *, expected_bundle_id: str, expected_sour
     if len(data) != entry["size"] or _sha256(data) != entry["sha256"]:
       raise ValueError(f"member hash/size mismatch: {name}")
     members[name] = data
-  expected, contract_id = _compute({name: members[name] for name in INPUT_FILES}, source)
+  input_names = _input_files(manifest["evidenceKind"])
+  expected, contract_id = _compute({name: members[name] for name in input_names}, source, manifest["evidenceKind"])
   if contract_id != manifest["declaredModelContractId"]:
     raise ValueError("declared model contract ID mismatch")
   for name in RESULT_FILES:
@@ -349,6 +388,7 @@ def main() -> int:
   build.add_argument("--policy", type=Path, required=True)
   build.add_argument("--output", type=Path, required=True)
   build.add_argument("--evidence-kind", choices=EVIDENCE_KINDS, required=True)
+  build.add_argument("--paired-evidence-dir", type=Path)
   verify = sub.add_parser("verify", help="check exact files and recompute with the recorded analyzer sources")
   verify.add_argument("--bundle", type=Path, required=True)
   verify.add_argument("--expected-bundle-id", required=True)
@@ -359,7 +399,8 @@ def main() -> int:
   try:
     if args.command == "build":
       manifest = build_review_bundle(args.rows, args.contract, args.policy, args.output, expected_source_head=args.expected_source_head,
-                                     expected_source_branch=args.expected_source_branch, evidence_kind=args.evidence_kind)
+                                     expected_source_branch=args.expected_source_branch, evidence_kind=args.evidence_kind,
+                                     paired_evidence_dir=args.paired_evidence_dir)
       result = {"stage": STAGE, "status": "BUILT_FOR_OFFLINE_REVIEW", "bundleId": manifest["bundleId"],
                 "source": manifest["source"], "evidenceKind": manifest["evidenceKind"], **BOUNDARY}
     else:
