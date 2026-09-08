@@ -3,8 +3,10 @@
   "title": "Integrated eGPU S2A telemetry-only evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["legs"],
+  "required": ["sourceHead", "sourceBranch", "legs"],
   "properties": {
+    "sourceHead": {"type": "string", "minLength": 1},
+    "sourceBranch": {"type": "string", "minLength": 1},
     "legs": {
       "type": "object",
       "additionalProperties": false,
@@ -21,16 +23,15 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "leg", "samples", "p50ModelExecutionMs", "p95ModelExecutionMs",
-        "p99ModelExecutionMs", "maxModelExecutionMs", "frameGapCount",
-        "fallbackCount", "guardViolationCount", "telemetryStateFresh",
-        "hardwareSamples", "hardwareValidSamples", "hardwareErrorSamples",
-        "supplyFaultSamples", "p95HardwareSampleDurationMs",
-        "maxHardwareSampleDurationMs", "maxGpuTempC", "maxMemoryTempC",
-        "maxPowerDrawW"
+        "leg", "sourceHead", "sourceBranch", "samples", "p50ModelExecutionMs", "p95ModelExecutionMs",
+        "p99ModelExecutionMs", "maxModelExecutionMs", "frameGapCount", "fallbackCount", "guardViolationCount",
+        "telemetryStateFresh", "hardwareSamples", "hardwareValidSamples", "hardwareErrorSamples", "supplyFaultSamples",
+        "p95HardwareSampleDurationMs", "maxHardwareSampleDurationMs", "maxGpuTempC", "maxMemoryTempC", "maxPowerDrawW"
       ],
       "properties": {
         "leg": {"type": "string", "enum": ["S2A_OFF_BEFORE", "S2A_TELEMETRY_ON", "S2A_OFF_AFTER"]},
+        "sourceHead": {"type": "string", "minLength": 1},
+        "sourceBranch": {"type": "string", "minLength": 1},
         "samples": {"type": "integer", "minimum": 0},
         "p50ModelExecutionMs": {"type": "number", "minimum": 0},
         "p95ModelExecutionMs": {"type": "number", "minimum": 0},
