@@ -5,6 +5,14 @@ ROOT = Path(__file__).resolve().parents[4]
 
 
 class TestEgpuIntegratedV6Migration(unittest.TestCase):
+  def test_exact_restore_hash_uses_utf8_bytes_without_platform_newline_translation(self):
+    import hashlib
+    from tools.apply_egpu_integrated_modeld_patch import git_hash_text
+    source = "first line\n# 한글 source\n"
+    data = source.encode("utf-8")
+    expected = hashlib.sha1(f"blob {len(data)}\0".encode() + data).hexdigest()
+    self.assertEqual(git_hash_text(source), expected)
+
   def test_plannerd_preserves_both_latest_carrot_and_v6_features(self):
     text = (ROOT / "openpilot/selfdrive/controls/plannerd.py").read_text(encoding="utf-8")
     self.assertIn("from openpilot.selfdrive.controls.lib.longitudinal_stopping_lead import StoppingLeadFilter", text)

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import unittest
 
 from openpilot.selfdrive.modeld.egpu_integrated_fault_state import FaultObservation, FaultSequenceTracker, FaultState, assess_fault_observation
 from openpilot.selfdrive.modeld.egpu_integrated_guardian import ActionSnapshot
 from openpilot.selfdrive.modeld.egpu_integrated_guardian_temporal import GuardianTemporalTracker, SceneContext
-from tools.egpu_integrated_fault_injection import run_scenario
+from tools.egpu_integrated_fault_injection import SCENARIOS, TEST_GUARDIAN_POLICY, run_scenario
 from tools.egpu_integrated_guardian_replay import analyze_rows
 
 
@@ -47,7 +48,10 @@ class TestFaultState(unittest.TestCase):
   def test_reviewed_same_frame_fallback_semantics(self):
     tracker = FaultSequenceTracker()
     first = tracker.observe(FaultObservation(10, "egpu", "egpu", True, False))
-    second = tracker.observe(FaultObservation(11, "egpu", "qcom", False, True, fallback_observed=True, model_output_present=True))
+    second = tracker.observe(FaultObservation(
+      11, "egpu", "qcom", False, True, fallback_observed=True, model_output_present=True,
+      output_frame_id=11, model_output_finite=True,
+    ))
     third = tracker.observe(FaultObservation(12, "qcom", "qcom", False, True))
     self.assertEqual(first["state"], FaultState.BIG_ACTIVE.value)
     self.assertEqual(second["state"], FaultState.SAME_FRAME_FALLBACK.value)
@@ -78,15 +82,96 @@ class TestFaultState(unittest.TestCase):
     self.assertEqual(result.reason, "startup_failed_latched_small")
 
   def test_fault_injection_suite_core_scenarios(self):
-    for name in (
-      "runtime_exception_same_frame",
-      "fallback_output_missing",
-      "unexpected_big_reentry",
-      "small_startup_without_big",
-      "pcie_degraded_evidence_only",
-    ):
+    for name in SCENARIOS:
       with self.subTest(name=name):
-        self.assertEqual(run_scenario(name)["status"], "PASS")
+        result = run_scenario(name)
+        self.assertEqual(result["status"], "PASS", result["reasons"])
+        # Replay output containing invalid model/CUT-OUT input must still be
+        # suitable for the analyzer's strict JSON evidence writer.
+        json.dumps(result, allow_nan=False)
+        self.assertFalse(result["hardwareTouched"])
+        self.assertFalse(result["controlAuthorization"])
+        self.assertFalse(result["publicRoadAuthorization"])
+
+  def test_hardware_degradation_records_review_without_inventing_runtime_switch(self):
+    result = run_scenario("usb_pcie_degraded_big_returns")
+    self.assertEqual(result["states"], ["BIG_ACTIVE", "BIG_ACTIVE"])
+    self.assertEqual(result["hardIssues"], [])
+    self.assertIn("pcie_not_ready", result["reviewIssues"])
+    self.assertIn("usb_below_superspeed_5g", result["reviewIssues"])
+    self.assertFalse(result["events"][-1]["retryExpectedThisIgnition"])
+
+  def test_disconnect_preserves_explicit_same_frame_proof_then_latches(self):
+    result = run_scenario("egpu_disconnect_while_active")
+    self.assertTrue(result["events"][1]["sameFrameOutputPreserved"])
+    self.assertEqual(result["states"][-1], "SMALL_LATCHED")
+    self.assertFalse(result["events"][-1]["retryExpectedThisIgnition"])
+
+  def test_stale_mismatched_and_missing_fallback_never_claim_output_preserved(self):
+    for name in ("fallback_output_stale_frame", "fallback_output_frame_id_mismatch", "fallback_output_nonfinite", "small_fallback_itself_fails"):
+      with self.subTest(name=name):
+        result = run_scenario(name)
+        failures = [event for event in result["events"] if event["state"] == "INCONSISTENT"]
+        self.assertTrue(failures)
+        for failure in failures:
+          self.assertIsNot(failure["sameFrameOutputPreserved"], True)
+
+  def test_repeated_exception_is_a_latch_violation_without_retry_authority(self):
+    result = run_scenario("repeated_big_exception")
+    self.assertIn("repeated_big_attempt_while_small_latched", result["events"][-1]["hardIssues"])
+    self.assertTrue(all(not event["retryExpectedThisIgnition"] for event in result["events"]))
+
+  def test_clean_process_boundary_allows_big_and_resets_frame_clock_continuity(self):
+    result = run_scenario("restart_boundary_big_returns")
+    self.assertEqual(result["hardIssues"], [])
+    self.assertEqual(result["states"], ["SAME_FRAME_FALLBACK", "SMALL_LATCHED", "BIG_ACTIVE"])
+    self.assertTrue(result["events"][-1]["restartBoundary"])
+    self.assertNotEqual(result["events"][0]["processId"], result["events"][-1]["processId"])
+
+  def test_replay_fault_classifications_do_not_authorize_controls(self):
+    for name in ("active_nan_output", "shadow_inf_output", "stale_hardware_telemetry", "supply_fault_big_output_normal"):
+      with self.subTest(name=name):
+        result = run_scenario(name)
+        event = result["events"][0]
+        self.assertEqual(event["combinedReviewBucket"], "ROOT_CAUSE")
+        self.assertFalse(event["guardian"]["evidenceEligible"])
+        self.assertFalse(event["guardian"]["controlAuthorization"])
+        self.assertFalse(event["guardian"]["shadowPublishToControls"])
+        self.assertFalse(event["publicRoadAuthorization"])
+    self.assertEqual(run_scenario("supply_fault_big_output_normal")["states"], ["BIG_ACTIVE"])
+
+  def test_source_identity_and_observer_backend_mismatches_are_distinct(self):
+    for name in ("replay_sourceHead_mismatch", "replay_sourceBranch_mismatch"):
+      with self.subTest(name=name):
+        result = run_scenario(name)
+        self.assertIn("source identity mismatch", result["rejection"])
+        self.assertEqual(result["events"], [])
+    result = run_scenario("observer_replay_active_backend_mismatch")
+    self.assertIsNone(result["rejection"])
+    self.assertFalse(result["events"][0]["fault"]["evidenceCoherent"])
+    self.assertEqual(result["reviewBuckets"], ["ROOT_CAUSE"])
+
+  def test_cutout_invalid_inputs_have_no_usable_prediction_or_transition(self):
+    for name in ("cutout_metadata_invalid", "cutout_metadata_nan_time", "cutout_metadata_nan_confidence", "cutout_metadata_inf_time"):
+      with self.subTest(name=name):
+        result = run_scenario(name)
+        guardian = result["events"][0]["guardian"]
+        self.assertFalse(guardian["carrotCutoutContext"]["active"])
+        self.assertFalse(guardian["evidenceEligible"])
+        self.assertNotIn("lead_cutout_prediction_onset", guardian["temporalTags"])
+        self.assertNotIn("lead_cutout_prediction_resolved", guardian["temporalTags"])
+
+  def test_cutout_and_stop_onsets_on_same_frame_are_both_retained(self):
+    result = run_scenario("cutout_onset_with_stop_disagreement")
+    guardian = result["events"][-1]["guardian"]
+    self.assertIn("lead_cutout_prediction_onset", guardian["temporalTags"])
+    self.assertIn("stop_disagreement_onset", guardian["temporalTags"])
+    self.assertEqual(guardian["reviewBucket"], "PRIORITY_REVIEW")
+
+  def test_replay_policy_thresholds_are_explicit_existing_test_policy(self):
+    result = run_scenario("stale_hardware_telemetry")
+    self.assertEqual(result["testGuardianPolicy"]["max_hardware_age_s"], TEST_GUARDIAN_POLICY.max_hardware_age_s)
+    self.assertEqual(result["policyProvenance"], "existing-research-review-policy-not-vehicle-safety-limits")
 
 
 class TestTemporalGuardian(unittest.TestCase):
@@ -217,7 +302,7 @@ class TestGuardianReplay(unittest.TestCase):
 
   def test_summary_surfaces_temporal_cutout_and_fault_state(self):
     rows = [
-      self.row(1, 1.0, lead=False, active_backend="egpu", fault={
+      self.row(1, 1.0, lead=False, active_backend="egpu", cutout_time=0.0, cutout_confidence=0.0, fault={
         "frameId": 1, "attemptedBackend": "egpu", "activeBackend": "egpu", "usbGpuActive": True, "startupFailed": False,
       }),
       self.row(2, 1.05, lead=True, stop_shadow=True, active_backend="qcom", cutout_time=0.7, cutout_confidence=0.4, fault={
