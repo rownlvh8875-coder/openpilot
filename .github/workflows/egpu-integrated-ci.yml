@@ -12,6 +12,7 @@ on:
       - dev-integrated-s4b-entry-gate
       - dev-integrated-carrot-e893-rebase
       - dev-integrated-guardian-replay-faults-e893
+      - dev-integrated-model-contracts
   pull_request:
     branches:
       - carrot-wip
@@ -44,10 +45,12 @@ jobs:
             openpilot/selfdrive/modeld/egpu_hardware_telemetry.py \
             openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py \
             openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
+            openpilot/selfdrive/modeld/egpu_integrated_model_contract.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian_temporal.py \
             openpilot/selfdrive/modeld/egpu_integrated_fault_state.py \
             openpilot/selfdrive/controls/lib/longitudinal_cutout.py \
+            tools/egpu_integrated_model_contract.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
             tools/egpu_integrated_install_preflight.py \
             tools/egpu_integrated_live_provenance.py \
@@ -92,7 +95,8 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_guardian_replay_faults \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_model_contract
 
       - name: Run synthetic fault-injection suite
         env:
@@ -101,6 +105,63 @@ jobs:
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
+
+      - name: Verify model contract layer cannot activate or load models
+        run: |
+          python - <<'PY'
+          import ast
+          import json
+          from pathlib import Path
+
+          files = [
+            Path('openpilot/selfdrive/modeld/egpu_integrated_model_contract.py'),
+            Path('tools/egpu_integrated_model_contract.py'),
+          ]
+          forbidden_names = {
+            'ensure_big_model', 'write_state', 'ModelState', 'Params', 'PubMaster',
+            'VisionIpcClient', 'Device',
+          }
+          forbidden_tokens = (
+            'UsbGpuActive', 'ChestnutActive', 'ChestnutModelError',
+            '.put_bool(', '.put(', 'managerState', "pm.send('modelV2'", "pm.send('carControl'",
+            'driving_tinygrad.pkl', 'big_driving_',
+          )
+          for path in files:
+            source = path.read_text(encoding='utf-8')
+            tree = ast.parse(source)
+            for node in ast.walk(tree):
+              if isinstance(node, (ast.Import, ast.ImportFrom)):
+                aliases = node.names
+                for alias in aliases:
+                  if alias.name in forbidden_names:
+                    raise SystemExit(f'forbidden model-runtime import in {path}: {alias.name}')
+              if isinstance(node, ast.Name) and node.id in forbidden_names:
+                raise SystemExit(f'forbidden model-runtime symbol in {path}: {node.id}')
+            for token in forbidden_tokens:
+              if token in source:
+                raise SystemExit(f'forbidden model activation/runtime token in {path}: {token}')
+
+          schema = json.loads(Path('config/egpu_integrated_model_contract.schema.json').read_text())
+          required = set(schema['required'])
+          props = set(schema['properties'])
+          if required != props:
+            raise SystemExit('model contract schema top-level required/properties mismatch')
+          if schema.get('additionalProperties') is not False:
+            raise SystemExit('model contract schema must reject unknown top-level fields')
+          policy = schema['properties']['policy']['properties']
+          expected_consts = {
+            'oneBigOneSmallBaseline': True,
+            'runtimeHotSwap': False,
+            'crossGenerationMix': False,
+            'fallbackSlot': 'qcom',
+            'controlAuthorization': False,
+            'publicRoadAuthorization': False,
+          }
+          for name, expected in expected_consts.items():
+            if policy.get(name, {}).get('const') != expected:
+              raise SystemExit(f'model contract schema policy drift: {name}')
+          print('modelContractRuntimeIsolation=PASS')
+          PY
 
       - name: Verify plan, qualification, binding, and ledger tools are non-executing
         run: |
