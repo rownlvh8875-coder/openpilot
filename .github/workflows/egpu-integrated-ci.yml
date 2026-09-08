@@ -52,6 +52,7 @@ jobs:
             tools/egpu_integrated_s2a_build_evidence.py \
             tools/egpu_integrated_s2a_qualification.py \
             tools/egpu_integrated_s2b_plan.py \
+            tools/egpu_integrated_qualification_binding.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -70,12 +71,13 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_telemetry \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_evidence
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_evidence \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_qualification_binding
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
 
-      - name: Verify plan and qualification tools are non-executing
+      - name: Verify plan, qualification, and binding tools are non-executing
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -91,6 +93,7 @@ jobs:
             Path('tools/egpu_integrated_s2a_qualification.py'),
             Path('tools/egpu_integrated_s2a_build_evidence.py'),
             Path('tools/egpu_integrated_s2b_plan.py'),
+            Path('tools/egpu_integrated_qualification_binding.py'),
           ]
           forbidden = (
             'git switch', 'git checkout', 'git reset --hard', 'systemctl restart',
@@ -102,7 +105,7 @@ jobs:
             for token in forbidden:
               if token in source:
                 raise SystemExit(f'forbidden mutating/control token in {path}: {token}')
-          print('planAndQualificationVerification=PASS')
+          print('planQualificationBindingVerification=PASS')
           PY
 
       - name: Verify S1 and S2A recorders cannot mutate markers or publish controls
@@ -149,12 +152,30 @@ jobs:
           print('commissioningPolicyNoDefaults=PASS')
           PY
 
+      - name: Verify evidence schemas expose complete top-level contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for path in [
+            Path('config/egpu_integrated_s1_evidence.schema.json'),
+            Path('config/egpu_integrated_s2a_evidence.schema.json'),
+          ]:
+            schema = json.loads(path.read_text())
+            required = set(schema['required'])
+            props = set(schema['properties'])
+            if required != props:
+              raise SystemExit(f'evidence schema top-level required/properties differ: {path}')
+            if schema.get('additionalProperties') is not False:
+              raise SystemExit(f'evidence schema must reject unknown top-level fields: {path}')
+          print('evidenceSchemaTopLevelContract=PASS')
+          PY
+
       - name: Verify parked probe has no control publication or manager registration
         run: |
           python - <<'PY'
           import ast
           from pathlib import Path
-
           path = Path('tools/egpu_integrated_s4b_shadow_probe.py')
           tree = ast.parse(path.read_text(encoding='utf-8'))
           forbidden_imports = {'PubMaster'}
