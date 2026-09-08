@@ -10,6 +10,7 @@ on:
       - dev-integrated-s2-telemetry
       - dev-integrated-commissioning-ledger
       - dev-integrated-s4b-entry-gate
+      - dev-integrated-carrot-e893-rebase
   pull_request:
     branches:
       - carrot-wip
@@ -40,6 +41,7 @@ jobs:
             openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py \
             openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
+            openpilot/selfdrive/controls/lib/longitudinal_cutout.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
             tools/egpu_integrated_install_preflight.py \
             tools/egpu_integrated_live_provenance.py \
@@ -79,6 +81,14 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_qualification_binding \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate
+
+      - name: Run focused Carrot cut-out tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python -m pytest -q \
+            openpilot/selfdrive/carrot/tests/test_trajectory_cutout.py \
+            openpilot/selfdrive/carrot/tests/test_cutout_mpc_integration.py
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
