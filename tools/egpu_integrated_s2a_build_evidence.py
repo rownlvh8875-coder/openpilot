@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble the three S2A recorder summaries into one qualification evidence file."""
+"""Assemble the three S2A recorder summaries into source-bound evidence."""
 from __future__ import annotations
 
 import argparse
@@ -22,9 +22,20 @@ def assemble(values: list[dict[str, Any]]) -> dict[str, Any]:
   missing = [leg for leg in LEGS if leg not in by_leg]
   if missing:
     raise ValueError(f"missing S2A legs: {', '.join(missing)}")
+
+  heads = {str(by_leg[leg].get("sourceHead") or "") for leg in LEGS}
+  branches = {str(by_leg[leg].get("sourceBranch") or "") for leg in LEGS}
+  if len(heads) != 1 or "" in heads:
+    raise ValueError("S2A legs must share one non-empty sourceHead")
+  if len(branches) != 1 or "" in branches:
+    raise ValueError("S2A legs must share one non-empty sourceBranch")
+  source_head = next(iter(heads)); source_branch = next(iter(branches))
+
   return {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "stage": "S2A_TELEMETRY_ONLY_EVIDENCE",
+    "sourceHead": source_head,
+    "sourceBranch": source_branch,
     "legs": {leg: by_leg[leg] for leg in LEGS},
     "observerAuthorization": False,
     "shadowAuthorization": False,
