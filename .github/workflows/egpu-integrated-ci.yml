@@ -9,6 +9,7 @@ on:
       - dev-integrated-s1-commissioning
       - dev-integrated-s2-telemetry
       - dev-integrated-commissioning-ledger
+      - dev-integrated-s4b-entry-gate
   pull_request:
     branches:
       - carrot-wip
@@ -76,7 +77,8 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_telemetry \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_evidence \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_qualification_binding \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
@@ -183,27 +185,34 @@ jobs:
           print('evidenceSchemaTopLevelContract=PASS')
           PY
 
-      - name: Verify parked probe has no control publication or manager registration
+      - name: Verify parked probe is readiness-gated and has no control publication
         run: |
           python - <<'PY'
           import ast
           from pathlib import Path
           path = Path('tools/egpu_integrated_s4b_shadow_probe.py')
-          tree = ast.parse(path.read_text(encoding='utf-8'))
-          forbidden_imports = {'PubMaster'}
+          source = path.read_text(encoding='utf-8')
+          tree = ast.parse(source)
           for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
               for alias in node.names:
-                if alias.name in forbidden_imports:
-                  raise SystemExit(f'forbidden import: {alias.name}')
+                if alias.name == 'PubMaster':
+                  raise SystemExit('forbidden PubMaster import')
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'send':
               if node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value in {'modelV2', 'carControl'}:
                 raise SystemExit(f'forbidden publish call: {node.args[0].value}')
-          source = path.read_text(encoding='utf-8')
-          for required in ('controlEligible\", False', 'qualityComparisonEligible\", False', 'MAX_S4B_HZ = 5.0'):
+          for required in (
+            'controlEligible\", False', 'qualityComparisonEligible\", False', 'MAX_S4B_HZ = 5.0',
+            '"--readiness"', '"--expected-head"', 'S4B_REVIEW_READINESS',
+            'shadowExecutionAuthorization', 's4bReadinessSha256',
+          ):
             if required not in source:
-              raise SystemExit(f'missing safety invariant: {required}')
-          print('staticSafetyVerification=PASS')
+              raise SystemExit(f'missing S4B safety invariant: {required}')
+          gate_call = source.index('_, readiness_sha256 = validate_entry(')
+          heavy_import = source.index('import numpy as np')
+          if gate_call >= heavy_import:
+            raise SystemExit('S4B readiness gate must run before heavy camera/QCOM initialization')
+          print('s4bReadinessEntryGateVerification=PASS')
           PY
 
       - name: Diff hygiene
