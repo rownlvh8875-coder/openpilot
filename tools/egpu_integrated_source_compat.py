@@ -8,7 +8,10 @@ from pathlib import Path
 import subprocess
 from typing import Mapping
 
-REVIEWED_HEAD = "6f4c00e625dc3d41d3776427a272a5c3fed75e6c"
+# Reviewed 2026-09-08 after upstream radar CUT-OUT + route-bundle changes.
+# eGPU/modeld/tinygrad critical blobs were unchanged from 6f4c00e, while the
+# v6-sensitive radar/longitudinal additions below were explicitly inspected.
+REVIEWED_HEAD = "a92d3a787e84a29949ca2b802f6a78fc9b580e87"
 DEFAULT_UPSTREAM = "https://github.com/ajouatom/openpilot.git"
 DEFAULT_BRANCH = "carrot-wip"
 TEMP_REF = "refs/egpu-integrated/upstream-carrot-wip"
@@ -35,6 +38,14 @@ V6_MIGRATION_PATHS = (
   "openpilot/selfdrive/controls/plannerd.py",
   "openpilot/selfdrive/controls/lib/h1_observability.py",
   "opendbc_repo/opendbc/dbc/generator/hyundai/hyundai_canfd_radar.dbc",
+  # Radar CUT-OUT / future-headway behavior added upstream on 2026-09-08.
+  # These are watched as v6 integration surfaces because they can change
+  # longitudinal behavior even though they do not touch eGPU/modeld itself.
+  "openpilot/selfdrive/carrot/radar/radard_dpath.py",
+  "openpilot/selfdrive/carrot/radar_motion/controller.py",
+  "openpilot/selfdrive/carrot/radar_motion/trajectory_cutout.py",
+  "openpilot/selfdrive/controls/lib/longitudinal_cutout.py",
+  "openpilot/selfdrive/controls/lib/longitudinal_mpc_lib/long_mpc.py",
 )
 
 
@@ -99,7 +110,7 @@ def main() -> int:
 
   safe = integration_status != "REVIEW_REQUIRED" and v6_status != "V6_REBASE_REVIEW_REQUIRED"
   report = {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "reviewedHead": REVIEWED_HEAD,
     "upstreamHead": upstream_head,
     "branch": args.branch,
