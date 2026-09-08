@@ -145,7 +145,7 @@ def discover_root(root: Path, *, expected_head: str, expected_branch: str, max_d
     accessible = False
   if not accessible:
     return {"root": str(root), "accessible": False, "filesScanned": 0, "truncated": False,
-            "verifiedPaired": [], "invalidPaired": [], "loosePaired": [], "shadowOutputs": [],
+            "verifiedPaired": [], "invalidPaired": [], "unverifiedPaired": [], "loosePaired": [], "shadowOutputs": [],
             "rawRouteLogs": [], "skipped": []}
 
   files, skipped, seen, truncated = _walk_root(root, max_depth=max_depth, max_files=max_files)
@@ -162,6 +162,7 @@ def discover_root(root: Path, *, expected_head: str, expected_branch: str, max_d
       shadow_outputs.append(str(path))
   verified_paired: list[dict[str, Any]] = []
   invalid_paired: list[dict[str, Any]] = []
+  unverified_paired: list[dict[str, Any]] = []
   loose_paired: list[dict[str, Any]] = []
   candidate_dirs = sorted({path.parent for path in files}, key=lambda p: str(p))
   required = set(ADAPTER_OUTPUT_FILES)
@@ -170,9 +171,11 @@ def discover_root(root: Path, *, expected_head: str, expected_branch: str, max_d
     if names is None:
       continue
     if required <= names:
-      item = (_verify_adapter_candidate(directory, expected_head=expected_head, expected_branch=expected_branch)
-              if verify_paired else {"path": str(directory), "status": "FOUND_NOT_VERIFIED"})
-      (verified_paired if item["status"] == "VERIFIED" else invalid_paired).append(item)
+      if not verify_paired:
+        unverified_paired.append({"path": str(directory), "status": "FOUND_NOT_VERIFIED"})
+      else:
+        item = _verify_adapter_candidate(directory, expected_head=expected_head, expected_branch=expected_branch)
+        (verified_paired if item["status"] == "VERIFIED" else invalid_paired).append(item)
       continue
     kinds = by_dir.get(directory, {})
     has_small = bool(kinds.get("small_jsonl"))
@@ -189,7 +192,7 @@ def discover_root(root: Path, *, expected_head: str, expected_branch: str, max_d
 
   return {
     "root": str(root), "accessible": True, "filesScanned": seen, "truncated": truncated,
-    "verifiedPaired": verified_paired, "invalidPaired": invalid_paired, "loosePaired": loose_paired,
+    "verifiedPaired": verified_paired, "invalidPaired": invalid_paired, "unverifiedPaired": unverified_paired, "loosePaired": loose_paired,
     "shadowOutputs": sorted(set(shadow_outputs)), "rawRouteLogs": sorted(set(raw_logs)),
     "skipped": sorted(set(skipped))[:200],
   }
@@ -198,6 +201,7 @@ def discover_root(root: Path, *, expected_head: str, expected_branch: str, max_d
 def _overall_state(roots: list[dict[str, Any]]) -> tuple[str, list[str]]:
   verified = sum(len(root["verifiedPaired"]) for root in roots)
   invalid = sum(len(root["invalidPaired"]) for root in roots)
+  unverified = sum(len(root["unverifiedPaired"]) for root in roots)
   loose = sum(len(root["loosePaired"]) for root in roots)
   shadow = sum(len(root["shadowOutputs"]) for root in roots)
   raw = sum(len(root["rawRouteLogs"]) for root in roots)
@@ -206,6 +210,8 @@ def _overall_state(roots: list[dict[str, Any]]) -> tuple[str, list[str]]:
     return "VERIFIED_PAIRED_EVIDENCE_FOUND", ["run provided_paired_offline review on the verified evidence directory"]
   if invalid:
     return "INVALID_PAIRED_EVIDENCE_FOUND", ["preserve the candidate unchanged and inspect its failed provenance/receipt verification"]
+  if unverified:
+    return "PAIRED_EVIDENCE_FOUND_NOT_VERIFIED", ["rerun discovery without --no-verify-paired or run the adapter verifier with the exact expected source"]
   if loose:
     return "LOOSE_PAIRED_CANDIDATE_FOUND", ["recover exact source/model/input provenance before adapter intake"]
   if shadow:
@@ -224,7 +230,7 @@ def build_report(roots: list[Path], *, expected_head: str, expected_branch: str,
                   for root in roots]
   state, next_actions = _overall_state(root_reports)
   return {
-    "schemaVersion": 1, "stage": STAGE, "state": state,
+    "schemaVersion": 2, "stage": STAGE, "state": state,
     "expectedSource": {"head": expected_head, "branch": expected_branch},
     "roots": root_reports, "nextActions": next_actions, **FALSE_BOUNDARY,
   }

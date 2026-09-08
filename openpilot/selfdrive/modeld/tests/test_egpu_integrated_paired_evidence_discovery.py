@@ -75,6 +75,20 @@ class TestPairedEvidenceDiscovery(unittest.TestCase):
     check.assert_called_once_with(candidate, expected_source_head=HEAD, expected_source_branch=BRANCH)
     self.assert_no_authority(report)
 
+  def test_exact_adapter_directory_without_verification_is_reported_separately(self):
+    candidate = self.root / "paired"
+    candidate.mkdir()
+    for name in discovery.ADAPTER_OUTPUT_FILES:
+      (candidate / name).write_text("x\n", encoding="utf-8")
+    with patch.object(discovery, "verify_adapter_output") as check:
+      report = self.report(verify=False)
+    self.assertEqual(report["schemaVersion"], 2)
+    self.assertEqual(report["state"], "PAIRED_EVIDENCE_FOUND_NOT_VERIFIED")
+    self.assertEqual(report["roots"][0]["unverifiedPaired"], [{"path": str(candidate), "status": "FOUND_NOT_VERIFIED"}])
+    self.assertEqual(report["roots"][0]["invalidPaired"], [])
+    check.assert_not_called()
+    self.assert_no_authority(report)
+
   def test_failed_adapter_verification_is_not_downgraded_to_loose_candidate(self):
     candidate = self.root / "paired"
     candidate.mkdir()
