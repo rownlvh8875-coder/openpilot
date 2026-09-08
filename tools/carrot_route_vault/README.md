@@ -11,7 +11,24 @@ reviewer. The page shows radar points, model paths/lanes, vision leads, recorded
 and recalculated Lead 1/2, per-track dPath diagnostics, and a lead-distance graph.
 Video and radar share the recorded qcamera timing; when timing or video is
 unavailable, the radar timeline operates independently and says so explicitly.
-Browser source/sensitivity controls only change replay analysis.
+The web replay sensitivity is fixed to 3, including requests with an old sensitivity
+query parameter. The browser source control only changes replay analysis. A single
+playback bar spans the video and radar panels, followed by a full-width distance/speed
+and acceleration graph using the desktop reviewer's continuity series.
+If aligned video ends before the radar evidence, playback continues on the radar
+clock with an explicit video-ended notice. Playback stops at the end of the radar
+evidence, even when the video is longer. Graphs break at missing values or unknown
+time mappings instead of connecting across those gaps.
+
+This integrated-branch update is for offline review and does not deploy or restart
+the route service or change vehicle software. Existing recorded lead decisions
+remain unchanged; recalculation uses the source version in the review environment.
+Service deployment requires a separately authorized task and evidence tied to the
+exact deployed source. Repository-wide branch synchronization is outside this update.
+
+The browser playback boundary checks run offline with Node's built-in test runner:
+`node --test tools/carrot_route_vault/tests/test_radar_view.mjs`. These deterministic
+media/DOM tests do not validate a real browser, uploaded route, or deployed service.
 
 Replay runs in a separate Python process, with one active job and at most four
 pending jobs per server. Requests poll for completion. Results are gzip-cached
