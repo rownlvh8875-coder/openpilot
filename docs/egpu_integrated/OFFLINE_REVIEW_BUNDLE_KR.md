@@ -8,6 +8,19 @@
 
 통합 작업의 출발점은 `carrot-wip-integrated-v6`의 `cbce1250f5e58302844bfeb03c4e1de9a5a2e6b3`이며, 앞 단계에서 검토한 upstream은 `a92d3a787e84a29949ca2b802f6a78fc9b580e87`입니다. 이 값들은 과거 검토 기준입니다. 새 자료에는 자료를 만든 정확한 HEAD와 branch를 사용하고, 실행하는 분석기의 Git 정보도 별도로 묶음에 고정합니다.
 
+2026-09-08 로컬 검증에서는 하드웨어 비의존 테스트 **214개**, 합성 fault 시나리오 **29개**, 커밋된 분석기의 실제 CLI 생성·재계산·변조 거부 검사가 통과했습니다. 변경 파일은 새 bundle 도구, 전용 테스트, 정책 schema·example, 이 문서와 CI입니다. 기존 차량 제어 경로는 수정하지 않았습니다.
+
+최종 원격 확인 중 upstream이 `20c7bb7152aaa50998ae44867904e59a6595b761`로 바뀌었습니다. 새 Tesla engage·ACC cancel·CAN wake 변경은 14개 파일에 걸쳐 `controlsd.py`, Tesla `carstate.py`, Panda CAN/ignition 코드를 포함합니다. 이 변경은 이번 오프라인 bundle 개발 브랜치에 가져오지 않았습니다. 기준 `a92d3a`에 대한 검사는 통과했지만 새 upstream과의 실제 검사 결과는 다음과 같습니다.
+
+| 검사 | 새 upstream에 대한 결과 |
+| --- | --- |
+| eGPU 통합 경계 | `CODE_EQUIVALENT_HEAD_DRIFT` |
+| 기존 v6 감시 경로 | `NO_V6_PATH_DRIFT` |
+| provenance | `REVIEW_REQUIRED`: `opendbc_repo/opendbc` tree 변경 |
+| 전체 | `REVIEW_REQUIRED`, `overallCompatible: false`, 종료 코드 2 |
+
+따라서 위 테스트 통과를 최신 upstream 호환성 통과로 해석하면 안 됩니다. CI는 최신 upstream 검사를 그대로 수행하며, FAIL 상태에서는 병합하지 않습니다. 다음 통합 판단에는 새 Tesla 제어·CAN 변경의 별도 검토와 호환성/회귀 검증이 필요합니다. 기존 baseline을 새 SHA로 치환하거나 변경 경로를 감시 대상에서 제외하지 않았습니다.
+
 이 도구는 로컬 파일만 읽고 새로운 출력 디렉터리를 만듭니다. comma 연결, 원격 자료 수집, rlog 내보내기, 모델 다운로드·컴파일·실행, Params·manager·차량 제어 변경을 수행하지 않습니다. S2A 하드웨어 검증을 대신하지 않으며 S2B qualification, S4C 20 Hz runner를 추가하지 않습니다. S2B는 실제 S2A hardware PASS 이전까지 plan-only이고, S4B의 기존 readiness 조건과 parked ≤5 Hz 제한도 그대로입니다.
 
 `synthetic`은 합성 입력이라는 표시이고, `provided_offline`은 사용자가 제공한 오프라인 입력이라는 표시입니다. 후자를 선택해도 실차 출처나 생산자 주장이 검증되지는 않습니다. 모델 계약은 선언된 구성만 나타내며, 행의 `qcom`·`egpu` 같은 backend 표시는 해당 모델이 실제로 실행되었다는 증거가 아닙니다. hardware, control, public-road, commissioning 승인과 `modelExecutionVerified`, `producerAssertionsVerified`는 모두 false로 유지합니다.
