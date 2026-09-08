@@ -10,6 +10,7 @@ on:
       - dev-integrated-s2-telemetry
       - dev-integrated-commissioning-ledger
       - dev-integrated-s4b-entry-gate
+      - dev-integrated-carrot-e893-rebase
   pull_request:
     branches:
       - carrot-wip
@@ -31,6 +32,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install locked NumPy for Carrot cut-out regression
+        run: python -m pip install --disable-pip-version-check --no-deps numpy==2.4.3
+
       - name: Compile integrated Python sources
         run: |
           python -m py_compile \
@@ -40,6 +44,7 @@ jobs:
             openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py \
             openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
+            openpilot/selfdrive/controls/lib/longitudinal_cutout.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
             tools/egpu_integrated_install_preflight.py \
             tools/egpu_integrated_live_provenance.py \
@@ -71,6 +76,7 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_carrot_cutout \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence \

@@ -8,7 +8,10 @@ from pathlib import Path
 import subprocess
 from typing import Mapping
 
-REVIEWED_HEAD = "6f4c00e625dc3d41d3776427a272a5c3fed75e6c"
+# Reviewed after merging ajouatom's 2026-09-08 radar cut-out series. The merge
+# review confirmed all eGPU-critical blobs remained identical while the two v6
+# overlap files (`log.capnp`, `longitudinal_planner.py`) merged in disjoint hunks.
+REVIEWED_HEAD = "e8937726af50ac57681b560015076a5b596e960d"
 DEFAULT_UPSTREAM = "https://github.com/ajouatom/openpilot.git"
 DEFAULT_BRANCH = "carrot-wip"
 TEMP_REF = "refs/egpu-integrated/upstream-carrot-wip"
