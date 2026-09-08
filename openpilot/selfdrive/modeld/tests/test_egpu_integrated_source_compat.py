@@ -12,6 +12,10 @@ class TestEgpuIntegratedSourceCompat(unittest.TestCase):
     self.assertEqual(status, "EXACT_REVIEWED")
     self.assertEqual(changed, [])
 
+  def test_every_model_contract_interface_is_watched(self):
+    from openpilot.selfdrive.modeld.egpu_integrated_model_contract import INTERFACE_PATHS
+    self.assertTrue(set(INTERFACE_PATHS).issubset(CRITICAL_PATHS))
+
   def test_code_equivalent_head_drift(self):
     reviewed = {"a": "1", "b": "2"}
     status, changed = classify("old", "new", reviewed, dict(reviewed))

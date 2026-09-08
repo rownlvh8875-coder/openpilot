@@ -84,6 +84,10 @@
         "upstreamObject": "1bffbcc5202d64e42b3832a4ab9ee0f72ff85bd1"
       },
       {
+        "path": "openpilot/selfdrive/modeld/parse_model_outputs.py",
+        "upstreamObject": "26c138b8eccb420d201256f45009ecabb2279f5b"
+      },
+      {
         "path": "openpilot/selfdrive/modeld/helpers.py",
         "upstreamObject": "151eead3ab6ff7705cd405cf6c88a47c56414b4c"
       },

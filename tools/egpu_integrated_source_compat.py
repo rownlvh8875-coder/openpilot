@@ -18,6 +18,7 @@ TEMP_REF = "refs/egpu-integrated/upstream-carrot-wip"
 CRITICAL_PATHS = (
   "openpilot/selfdrive/modeld/modeld.py",
   "openpilot/selfdrive/modeld/fill_model_msg.py",
+  "openpilot/selfdrive/modeld/parse_model_outputs.py",
   "openpilot/selfdrive/modeld/helpers.py",
   "openpilot/selfdrive/modeld/big_model.py",
   "openpilot/system/hardware/usbgpu.py",
