@@ -40,6 +40,22 @@ INTERFACE_PATHS = (
 )
 HEAD_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+CONTRACT_POLICY = {
+  "oneBigOneSmallBaseline": True,
+  "runtimeHotSwap": False,
+  "crossGenerationMix": False,
+  "fallbackSlot": SLOT_QCOM,
+  "controlAuthorization": False,
+  "publicRoadAuthorization": False,
+}
+REGISTRY_POLICY = {
+  "runtimeHotSwap": False,
+  "crossSlotFallback": False,
+  "controlAuthorization": False,
+}
+CONTRACT_KEYS = {"schemaVersion", "source", "generation", "registry", "policy", "contractId"}
+SOURCE_KEYS = {"head", "branch", "interfaceBlobs", "interfaceFingerprint"}
+REGISTRY_KEYS = {"schemaVersion", "fallbackSlot", "slots", "policy"}
 
 
 @dataclass(frozen=True)
@@ -85,6 +101,8 @@ class ModelPairContract:
       raise ValueError("QCOM slot must be builtin and bind the source LFS artifact")
     if self.registry.fallback_slot != SLOT_QCOM:
       raise ValueError("fallback slot must remain QCOM")
+    if self.registry.qcom.generation != self.generation or self.registry.egpu.generation != self.generation:
+      raise ValueError("contract, BIG, and SMALL generations must match exactly")
     if self.registry.qcom.nominal_hz != self.registry.egpu.nominal_hz:
       raise ValueError("BIG and SMALL nominal frequency must match")
     if self.registry.qcom.runner != self.registry.egpu.runner:
@@ -211,14 +229,7 @@ def contract_payload_unchecked(contract: ModelPairContract) -> dict[str, Any]:
     },
     "generation": contract.generation,
     "registry": registry_to_dict(contract.registry),
-    "policy": {
-      "oneBigOneSmallBaseline": True,
-      "runtimeHotSwap": False,
-      "crossGenerationMix": False,
-      "fallbackSlot": SLOT_QCOM,
-      "controlAuthorization": False,
-      "publicRoadAuthorization": False,
-    },
+    "policy": dict(CONTRACT_POLICY),
   }
 
 
@@ -235,29 +246,39 @@ def contract_payload(contract: ModelPairContract) -> dict[str, Any]:
 
 
 def contract_from_dict(value: Any) -> ModelPairContract:
-  if not isinstance(value, dict):
-    raise ValueError("contract must be an object")
+  if not isinstance(value, dict) or set(value) != CONTRACT_KEYS:
+    raise ValueError("contract must contain exactly the reviewed top-level fields")
+  if value.get("policy") != CONTRACT_POLICY:
+    raise ValueError("contract policy mismatch")
   source_raw = value.get("source")
-  if not isinstance(source_raw, dict):
-    raise ValueError("contract source must be an object")
+  if not isinstance(source_raw, dict) or set(source_raw) != SOURCE_KEYS:
+    raise ValueError("contract source fields mismatch")
   rows = source_raw.get("interfaceBlobs")
   if not isinstance(rows, list):
     raise ValueError("interfaceBlobs must be a list")
   blobs: list[tuple[str, str]] = []
   for row in rows:
-    if not isinstance(row, dict):
-      raise ValueError("interfaceBlobs row must be an object")
-    blobs.append((str(row.get("path", "")), str(row.get("blob", ""))))
+    if not isinstance(row, dict) or set(row) != {"path", "blob"}:
+      raise ValueError("interfaceBlobs row fields mismatch")
+    blobs.append((str(row["path"]), str(row["blob"])))
+  registry_raw = value.get("registry")
+  if not isinstance(registry_raw, dict) or set(registry_raw) != REGISTRY_KEYS:
+    raise ValueError("registry contract fields mismatch")
+  if registry_raw.get("policy") != REGISTRY_POLICY:
+    raise ValueError("registry policy mismatch")
+  slots = registry_raw.get("slots")
+  if not isinstance(slots, dict) or set(slots) != {"qcom", "egpu"}:
+    raise ValueError("registry must contain exactly qcom and egpu slots")
   source = SourceBinding(
-    head=str(source_raw.get("head", "")),
-    branch=str(source_raw.get("branch", "")),
+    head=str(source_raw["head"]),
+    branch=str(source_raw["branch"]),
     interface_blobs=tuple(blobs),
-    interface_fingerprint=str(source_raw.get("interfaceFingerprint", "")),
+    interface_fingerprint=str(source_raw["interfaceFingerprint"]),
   )
   contract = ModelPairContract(
     source=source,
     generation=int(value.get("generation", -1)),
-    registry=registry_from_dict(value.get("registry")),
+    registry=registry_from_dict(registry_raw),
     contract_id=str(value.get("contractId", "")),
     schema_version=int(value.get("schemaVersion", 0)),
   )
