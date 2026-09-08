@@ -22,11 +22,13 @@ READY_S4B_REVIEW
 
 각 qualification binding은 evidence / policy / qualification 파일 SHA256과 exact recomputation 결과를 포함한다.
 
-## 현재 의도적 HOLD
+## 현재 실제 장비 상태 — 2026-09-08
 
-현재 S2B는 plan-only이다. 실제 S2A comma hardware evidence가 아직 없으므로 S2B recorder와 qualification은 구현하지 않는다.
+소프트웨어 gate와 synthetic 검증은 구현되어 있지만, 접근 가능한 저장소에는 실제 comma의 `POSTBOOT_ALL_FEATURES_OFF` PASS evidence나 S1 observer evidence가 없다. 회사망에서는 홈 NAS와 comma SSH에도 접근할 수 없었다.
 
-따라서 실제 evidence chain은 정상적으로 `HOLD_S2B_BINDING_REQUIRED`에 머물러야 한다. synthetic test에서만 미래의 S2B PASS binding을 만들어 S4B gate 자체의 논리를 검증한다.
+따라서 **실제 hardware evidence chain은 S2B 직전이 아니라 post-boot / S1 시작 이전에서 HOLD**다. 다음 실제 단계는 홈/차량 네트워크에서 exact integrated HEAD를 확인한 뒤 all-features-OFF post-boot verification을 수행하고, 그것이 PASS일 때만 S1 observer-only commissioning plan을 여는 것이다.
+
+S2B가 plan-only라는 설계 제한은 그대로 유효하다. 미래에 S1과 S2A가 모두 실제 hardware evidence로 PASS하더라도 S2B recorder/qualification은 별도 검토 전까지 구현하지 않는다. synthetic test에서만 미래 S2B PASS binding을 만들어 S4B gate 논리를 검증한다.
 
 ## S4B readiness
 
