@@ -8,16 +8,23 @@ QCOM inference workload perturbs the active eGPU driving path.
 
 The script publishes no cereal services, no modelV2, and no vehicle commands.
 Never add it to manager process configuration in Stage 4B.
+
+S4B entry is additionally locked by a source-bound S4B_REVIEW_READINESS PASS
+artifact. The readiness gate is checked before camera/QCOM model initialization.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import time
+from typing import Any
 
 MAX_S4B_HZ = 5.0
+EXPECTED_BRANCH = "carrot-wip-integrated-v6"
 
 
 def write_event(out, event: dict, *, flush: bool = False) -> None:
@@ -47,8 +54,62 @@ def resource_isolation(nice_inc: int, cpu_affinity: str | None) -> dict:
   return result
 
 
+def sha256_file(path: Path) -> str:
+  h = hashlib.sha256()
+  with path.open("rb") as f:
+    for chunk in iter(lambda: f.read(1024 * 1024), b""):
+      h.update(chunk)
+  return h.hexdigest()
+
+
+def git_identity(repo: Path) -> tuple[str | None, str | None]:
+  def read(*args: str) -> str | None:
+    p = subprocess.run(["git", "-C", str(repo), *args], text=True, capture_output=True, check=False)
+    return p.stdout.strip() if p.returncode == 0 and p.stdout.strip() else None
+  return read("rev-parse", "HEAD"), read("rev-parse", "--abbrev-ref", "HEAD")
+
+
+def validate_readiness(readiness: dict[str, Any], *, expected_head: str,
+                       expected_branch: str = EXPECTED_BRANCH) -> None:
+  if readiness.get("stage") != "S4B_REVIEW_READINESS":
+    raise ValueError("S4B readiness stage mismatch")
+  if readiness.get("status") != "PASS":
+    raise ValueError("S4B readiness must be PASS")
+  if readiness.get("sourceHead") != expected_head or readiness.get("sourceBranch") != expected_branch:
+    raise ValueError("S4B readiness source identity mismatch")
+  if readiness.get("reasons") not in ([], None):
+    raise ValueError("S4B readiness contains HOLD reasons")
+  if readiness.get("nextGate") != "S4B_PARKED_SHADOW_LOAD_PROBE_PLAN_ONLY":
+    raise ValueError("S4B readiness nextGate mismatch")
+  auth = readiness.get("authorizations", {})
+  for name in (
+    "shadowExecutionAuthorization", "observerEnableAuthorization", "telemetryEnableAuthorization",
+    "rebootAuthorization", "publicRoadAuthorization", "controlAuthorization",
+  ):
+    if auth.get(name) is not False:
+      raise ValueError(f"S4B readiness authorization boundary violated: {name}")
+
+
+def validate_entry(readiness_path: Path, *, expected_head: str,
+                   expected_branch: str = EXPECTED_BRANCH,
+                   repo: Path | None = None) -> tuple[dict[str, Any], str]:
+  readiness = json.loads(readiness_path.read_text(encoding="utf-8"))
+  validate_readiness(readiness, expected_head=expected_head, expected_branch=expected_branch)
+  repo = repo or Path(__file__).resolve().parents[1]
+  actual_head, actual_branch = git_identity(repo)
+  if actual_head != expected_head or actual_branch != expected_branch:
+    raise ValueError(
+      f"running source identity mismatch: head={actual_head} branch={actual_branch} "
+      f"expectedHead={expected_head} expectedBranch={expected_branch}"
+    )
+  return readiness, sha256_file(readiness_path)
+
+
 def main() -> int:
   ap = argparse.ArgumentParser()
+  ap.add_argument("--readiness", type=Path, required=True)
+  ap.add_argument("--expected-head", required=True)
+  ap.add_argument("--expected-branch", default=EXPECTED_BRANCH)
   ap.add_argument("--tap-socket", default="/tmp/egpu_integrated_shadow_input.sock")
   ap.add_argument("--output", default="/tmp/egpu_integrated_s4b_shadow.jsonl")
   ap.add_argument("--max-hz", type=float, default=5.0)
@@ -61,6 +122,22 @@ def main() -> int:
     raise SystemExit("S4B --max-hz must be >0 and <=5")
   if not 0 < args.duration <= 300:
     raise SystemExit("S4B --duration must be >0 and <=300 seconds")
+
+  # Critical entry gate: no camera or QCOM initialization before this succeeds.
+  try:
+    _, readiness_sha256 = validate_entry(
+      args.readiness.resolve(), expected_head=args.expected_head, expected_branch=args.expected_branch,
+    )
+  except (ValueError, OSError, json.JSONDecodeError) as exc:
+    print(json.dumps({
+      "status": "HOLD",
+      "stage": "S4B_ENTRY_GATE",
+      "reason": str(exc),
+      "shadowExecutionAuthorization": False,
+      "controlAuthorization": False,
+      "publicRoadAuthorization": False,
+    }, indent=2))
+    return 4
 
   if args.profile:
     os.environ.setdefault("PROFILE", "1")
@@ -122,6 +199,8 @@ def main() -> int:
         "PROFILE": os.getenv("PROFILE"), "resourceIsolation": isolation,
         "manualStartOnly": True, "managerAutostart": False,
         "purpose": "active-path-interference-only",
+        "sourceHead": args.expected_head, "sourceBranch": args.expected_branch,
+        "s4bReadinessSha256": readiness_sha256,
       }, flush=True)
 
       while time.monotonic() < start_deadline:
