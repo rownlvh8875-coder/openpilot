@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""Generate plan-only S2A telemetry commissioning from S1 PASS evidence.
-
-S2A isolates telemetry overhead by keeping observer and shadow disabled.
-This tool never changes markers, Params, processes, branches, or power state.
-"""
+"""Generate plan-only S2A telemetry commissioning from bound S1 PASS evidence."""
 from __future__ import annotations
 
 import argparse
@@ -14,25 +10,45 @@ from typing import Any
 EXPECTED_BRANCH = "carrot-wip-integrated-v6"
 
 
-def build_s2a_plan(s1: dict[str, Any], *, expected_head: str, expected_branch: str = EXPECTED_BRANCH) -> dict[str, Any]:
-  if s1.get("status") != "PASS":
-    raise ValueError("S1 qualification must be PASS")
-  if s1.get("nextGate") != "S2_TELEMETRY_PLAN_ONLY":
-    raise ValueError("S1 nextGate is not S2_TELEMETRY_PLAN_ONLY")
+def _valid_digest(value: Any) -> bool:
+  return isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+
+
+def build_s2a_plan(s1: dict[str, Any], binding: dict[str, Any], *, expected_head: str,
+                   expected_branch: str = EXPECTED_BRANCH) -> dict[str, Any]:
+  if s1.get("status") != "PASS" or s1.get("nextGate") != "S2_TELEMETRY_PLAN_ONLY":
+    raise ValueError("S1 qualification must be PASS with S2 telemetry nextGate")
   if s1.get("controlAuthorization") is not False:
     raise ValueError("S1 controlAuthorization must remain false")
-  if s1.get("sourceHead") != expected_head:
-    raise ValueError("S1 sourceHead does not match expected head")
-  if s1.get("sourceBranch") != expected_branch:
-    raise ValueError("S1 sourceBranch does not match expected branch")
+  if s1.get("sourceHead") != expected_head or s1.get("sourceBranch") != expected_branch:
+    raise ValueError("S1 source identity does not match expected integrated source")
+
+  if binding.get("stage") != "COMMISSIONING_QUALIFICATION_BINDING":
+    raise ValueError("S1 binding stage mismatch")
+  if binding.get("qualificationStage") != "S1_OBSERVER_QUALIFICATION":
+    raise ValueError("S1 binding qualificationStage mismatch")
+  if binding.get("status") != "PASS" or binding.get("nextGate") != "S2_TELEMETRY_PLAN_ONLY":
+    raise ValueError("S1 binding must represent the PASS qualification")
+  if binding.get("sourceHead") != expected_head or binding.get("sourceBranch") != expected_branch:
+    raise ValueError("S1 binding source identity mismatch")
+  if binding.get("recomputedExactMatch") is not True or binding.get("controlAuthorization") is not False:
+    raise ValueError("S1 binding integrity/authorization mismatch")
+  for name in ("evidenceSha256", "policySha256", "qualificationSha256"):
+    if not _valid_digest(binding.get(name)):
+      raise ValueError(f"invalid S1 binding digest: {name}")
 
   return {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "stage": "S2A_TELEMETRY_ONLY_PLAN",
     "expectedHead": expected_head,
     "expectedBranch": expected_branch,
-    "sourceHead": s1["sourceHead"],
-    "sourceBranch": s1["sourceBranch"],
+    "sourceHead": expected_head,
+    "sourceBranch": expected_branch,
+    "s1Binding": {
+      "evidenceSha256": binding["evidenceSha256"],
+      "policySha256": binding["policySha256"],
+      "qualificationSha256": binding["qualificationSha256"],
+    },
     "purpose": "isolate read-only eGPU hardware telemetry overhead on active Carrot/eGPU inference",
     "sequence": [
       {"id": "S2A_OFF_BEFORE", "observer": False, "telemetry": False, "shadow": False, "stationaryOnly": True, "controlsInactive": True},
@@ -77,13 +93,15 @@ def build_s2a_plan(s1: dict[str, Any], *, expected_head: str, expected_branch: s
 def main() -> int:
   ap = argparse.ArgumentParser()
   ap.add_argument("--s1-qualification", type=Path, required=True)
+  ap.add_argument("--s1-binding", type=Path, required=True)
   ap.add_argument("--expected-head", required=True)
   ap.add_argument("--expected-branch", default=EXPECTED_BRANCH)
   ap.add_argument("--output", type=Path)
   args = ap.parse_args()
   s1 = json.loads(args.s1_qualification.read_text(encoding="utf-8"))
+  binding = json.loads(args.s1_binding.read_text(encoding="utf-8"))
   try:
-    plan = build_s2a_plan(s1, expected_head=args.expected_head, expected_branch=args.expected_branch)
+    plan = build_s2a_plan(s1, binding, expected_head=args.expected_head, expected_branch=args.expected_branch)
   except ValueError as exc:
     print(json.dumps({"status": "HOLD", "reason": str(exc)}, indent=2))
     return 2
