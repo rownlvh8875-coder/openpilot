@@ -11,6 +11,7 @@ on:
       - dev-integrated-commissioning-ledger
       - dev-integrated-s4b-entry-gate
       - dev-integrated-carrot-e893-rebase
+      - dev-integrated-guardian-replay-faults-e893
   pull_request:
     branches:
       - carrot-wip
@@ -44,6 +45,8 @@ jobs:
             openpilot/selfdrive/modeld/egpu_integrated_shadow_tap.py \
             openpilot/selfdrive/modeld/egpu_integrated_model_slots.py \
             openpilot/selfdrive/modeld/egpu_integrated_guardian.py \
+            openpilot/selfdrive/modeld/egpu_integrated_guardian_temporal.py \
+            openpilot/selfdrive/modeld/egpu_integrated_fault_state.py \
             openpilot/selfdrive/controls/lib/longitudinal_cutout.py \
             tools/egpu_integrated_s4b_shadow_probe.py \
             tools/egpu_integrated_install_preflight.py \
@@ -62,6 +65,9 @@ jobs:
             tools/egpu_integrated_qualification_binding.py \
             tools/egpu_integrated_commissioning_ledger.py \
             tools/egpu_integrated_s4b_readiness.py \
+            tools/egpu_integrated_fault_injection.py \
+            tools/egpu_integrated_guardian_replay.py \
+            tools/egpu_integrated_review_queue.py \
             tools/egpu_integrated_source_compat.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
@@ -84,7 +90,14 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s2_evidence \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_qualification_binding \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
-            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_guardian_replay_faults \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue
+
+      - name: Run synthetic fault-injection suite
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python tools/egpu_integrated_fault_injection.py --all
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
@@ -120,6 +133,44 @@ jobs:
               if token in source:
                 raise SystemExit(f'forbidden mutating/control token in {path}: {token}')
           print('planQualificationBindingLedgerVerification=PASS')
+          PY
+
+      - name: Verify offline Guardian replay and fault tools stay isolated
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+
+          files = [
+            Path('openpilot/selfdrive/modeld/egpu_integrated_fault_state.py'),
+            Path('openpilot/selfdrive/modeld/egpu_integrated_guardian_temporal.py'),
+            Path('tools/egpu_integrated_fault_injection.py'),
+            Path('tools/egpu_integrated_guardian_replay.py'),
+            Path('tools/egpu_integrated_review_queue.py'),
+          ]
+          forbidden_modules = (
+            'openpilot.cereal.messaging', 'openpilot.common.params', 'msgq.visionipc', 'tinygrad',
+          )
+          forbidden_names = {'PubMaster', 'VisionIpcClient'}
+          for path in files:
+            source = path.read_text(encoding='utf-8')
+            tree = ast.parse(source)
+            for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                for alias in node.names:
+                  if alias.name.startswith(forbidden_modules):
+                    raise SystemExit(f'forbidden runtime import in {path}: {alias.name}')
+              if isinstance(node, ast.ImportFrom):
+                module = node.module or ''
+                if module.startswith(forbidden_modules):
+                  raise SystemExit(f'forbidden runtime import in {path}: {module}')
+                for alias in node.names:
+                  if alias.name in forbidden_names:
+                    raise SystemExit(f'forbidden runtime symbol in {path}: {alias.name}')
+            for token in ('Params(', '.put_bool(', "pm.send('modelV2'", "pm.send('carControl'", 'Device["AMD"]'):
+              if token in source:
+                raise SystemExit(f'forbidden runtime/control token in {path}: {token}')
+          print('offlineGuardianReplayFaultIsolation=PASS')
           PY
 
       - name: Verify S1 and S2A recorders cannot mutate markers or publish controls
@@ -188,6 +239,16 @@ jobs:
               raise SystemExit(f'evidence schema top-level required/properties differ: {path}')
             if schema.get('additionalProperties') is not False:
               raise SystemExit(f'evidence schema must reject unknown top-level fields: {path}')
+          replay = json.loads(Path('config/egpu_integrated_guardian_replay_row.schema.json').read_text())
+          if replay.get('additionalProperties') is not False:
+            raise SystemExit('Guardian replay row schema must reject unknown top-level fields')
+          required = set(replay.get('required', []))
+          if required != {'sourceHead', 'sourceBranch', 'active', 'shadow', 'scene'}:
+            raise SystemExit('Guardian replay row required fields changed unexpectedly')
+          scene_props = replay['$defs']['scene']['properties']
+          for required_scene_field in ('leadCutOutTimeS', 'leadCutOutConfidence'):
+            if required_scene_field not in scene_props:
+              raise SystemExit(f'missing Carrot cut-out replay field: {required_scene_field}')
           print('evidenceSchemaTopLevelContract=PASS')
           PY
 
