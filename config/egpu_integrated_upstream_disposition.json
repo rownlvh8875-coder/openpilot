@@ -1,0 +1,418 @@
+{
+  "schemaVersion": 1,
+  "previousReviewedHead": "a92d3a787e84a29949ca2b802f6a78fc9b580e87",
+  "reviewedUpstreamHead": "b7ab68addc29c3b9dc8f02023de36dba7109ed8c",
+  "retainedSourceHead": "8997be8b7cbc9f8b978ef942b7c9d577bf76f790",
+  "paths": [
+    {
+      "path": "AGENTS.md",
+      "disposition": "RETAIN_USER_INSTRUCTIONS",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "4cae3ff1e4dd5c56fe89103371112ace7b7e5fd0"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "450b14344bd27e71c8ace044a4b2c85f5575c9df"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "4cae3ff1e4dd5c56fe89103371112ace7b7e5fd0"
+      }
+    },
+    {
+      "path": "docs/user/en/settings.md",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "91151bc2c965a1ff725b6ef75d1b4b550cfafec2"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "c8e7cd1a55ecf094e70655d516df7f760b92b627"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "91151bc2c965a1ff725b6ef75d1b4b550cfafec2"
+      }
+    },
+    {
+      "path": "docs/user/en/tesla.md",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "0380a1858a336721f5dcc56b93ea2886fe73ade7"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "bbb3fd9517281475eddab61a43c0c10dbc715a10"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "0380a1858a336721f5dcc56b93ea2886fe73ade7"
+      }
+    },
+    {
+      "path": "docs/user/ko/settings.md",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "df8c48d301bc29dbd03a8db1213f1ede69d65c32"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "1fb00164d20dbc4e9923197a3307a72551a0bc28"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "df8c48d301bc29dbd03a8db1213f1ede69d65c32"
+      }
+    },
+    {
+      "path": "docs/user/ko/tesla.md",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "c837fc22b4ae4be75255bfacadd0da3df2d5027c"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "8701d2ee541b21b7b4dcd2b3929cf1ca5d4d0a5a"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "c837fc22b4ae4be75255bfacadd0da3df2d5027c"
+      }
+    },
+    {
+      "path": "opendbc_repo/opendbc/car/tesla/carstate.py",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "106f076e627e2ef36de7ab8e51fc0e11de4cf6d3"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "f4742af75e9b78696376cc749348e1ec181d960a"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "106f076e627e2ef36de7ab8e51fc0e11de4cf6d3"
+      }
+    },
+    {
+      "path": "opendbc_repo/opendbc/car/tesla/tests/test_tesla.py",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "0c1da68ef4dd86151794bf481c26b3bb41e08e9a"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "7c0453127fef6ddc1a7956ec2fc2d2f807b56889"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "0c1da68ef4dd86151794bf481c26b3bb41e08e9a"
+      }
+    },
+    {
+      "path": "openpilot/selfdrive/carrot/radar/tools/radar_web_export.py",
+      "disposition": "SELECTIVE_INTEGRATION",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "0c92b086857c168a6aa4b9ddd6330a78d6b6cc53"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "7912000b88d686cfd02a3bd1b9ebe09461666fc9"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "3c08d8a9f7ac2742ef5d47c3a0784f1706c88c2e"
+      }
+    },
+    {
+      "path": "openpilot/selfdrive/carrot_settings.json",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "967691f2b08c1902cb13545658f435f432cbfe90"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "10edc04048e93e5794fd0e6c4893d4773c16a680"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "967691f2b08c1902cb13545658f435f432cbfe90"
+      }
+    },
+    {
+      "path": "openpilot/selfdrive/controls/controlsd.py",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "15cfc5d3deb13bb860be060cc887d07439e55bc2"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "943a460799c2acde15b560fa98d76d2074ac5ef4"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "15cfc5d3deb13bb860be060cc887d07439e55bc2"
+      }
+    },
+    {
+      "path": "openpilot/selfdrive/controls/tests/test_controlsd.py",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": null,
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "1a084e6daf8d24dc4bf949dfc9e39135fe2a4253"
+      },
+      "expectedIntegratedObject": null
+    },
+    {
+      "path": "panda/board/drivers/can_common.h",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "755e30f64df1225fd4eddeb53a936ca0dc8e3af9"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "b1714a2b3f91d31247df0ca441de99af4c12dba9"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "755e30f64df1225fd4eddeb53a936ca0dc8e3af9"
+      }
+    },
+    {
+      "path": "panda/board/drivers/can_common_declarations.h",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "57bf87d9c7c267adf74ffc8c17b407579ca85b39"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "ad3cf7e6d102e7e62d4106222d50063919ecd005"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "57bf87d9c7c267adf74ffc8c17b407579ca85b39"
+      }
+    },
+    {
+      "path": "panda/board/main.c",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "9770f8368f86e3f3ca34683520305f259a4da04b"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "af4f5560f60a70b8bfe5491c7a22245ecd046445"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "9770f8368f86e3f3ca34683520305f259a4da04b"
+      }
+    },
+    {
+      "path": "panda/tests/libpanda/libpanda_py.py",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "eef722c06adecd8bfa8eee08bfe2226b416798d6"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "8e5c17c773cc25394d73a932a89d6786d28f60ad"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "eef722c06adecd8bfa8eee08bfe2226b416798d6"
+      }
+    },
+    {
+      "path": "panda/tests/test_ignition_can.py",
+      "disposition": "RETAIN_INTEGRATED",
+      "previousUpstreamObject": null,
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "a8066aa2fa4e5304d72058dffabfca7c2a3b97dd"
+      },
+      "expectedIntegratedObject": null
+    },
+    {
+      "path": "tools/carrot_route_vault/README.md",
+      "disposition": "SELECTIVE_INTEGRATION",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "280bc4fcd814a0445460088e809b6edc705f0ad3"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "ec19cbb1fa9593dadc48f331f38167a07df69932"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "cc60bcd9bc27e24e0a634ddab7023bbcb7142b4b"
+      }
+    },
+    {
+      "path": "tools/carrot_route_vault/radar_view.js",
+      "disposition": "SELECTIVE_INTEGRATION",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "da9d5b7a2c8d8ec0affa6f695cd74f420b7b89f3"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "cd0ae7d123162e008ed5bd3c2a7527c4fa1c3242"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "76b6b30234fc3cb4dd0b7c07a8e3b24762cc3e9c"
+      }
+    },
+    {
+      "path": "tools/carrot_route_vault/tests/test_radar.py",
+      "disposition": "SELECTIVE_INTEGRATION",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "8de639a06e549272fa1fb61a9b54509711d06e37"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "0d30d56e4c2f62d034e89924c0d814596796c736"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "d3cfdab59bcdbeb1a3a1b27c0ca5977d1d7540bb"
+      }
+    },
+    {
+      "path": "tools/carrot_route_vault/tests/test_viewer.py",
+      "disposition": "SELECTIVE_INTEGRATION",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "5c79c78173427302a4369a6ed0432aef67783ac7"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "59023a90a71005a6729b784f1474cdde492b543b"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "59023a90a71005a6729b784f1474cdde492b543b"
+      }
+    },
+    {
+      "path": "tools/carrot_route_vault/viewer.py",
+      "disposition": "SELECTIVE_INTEGRATION",
+      "previousUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "cd6e3ec38552075dd950e5918c207fc99db470bf"
+      },
+      "reviewedUpstreamObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "05d6042a455b67e7b7f9c10ad50f56129a60edff"
+      },
+      "expectedIntegratedObject": {
+        "mode": "100644",
+        "type": "blob",
+        "oid": "05d6042a455b67e7b7f9c10ad50f56129a60edff"
+      }
+    }
+  ],
+  "localProtectedTrees": [
+    {
+      "path": "opendbc_repo/opendbc",
+      "expectedIntegratedObject": {
+        "mode": "040000",
+        "type": "tree",
+        "oid": "a346aab4afbf1220c64193579e474013c5e412eb"
+      }
+    },
+    {
+      "path": "openpilot/selfdrive/controls",
+      "expectedIntegratedObject": {
+        "mode": "040000",
+        "type": "tree",
+        "oid": "3753ed101e1f3db9bf3e5fc95b3b6db369513e37"
+      }
+    },
+    {
+      "path": "panda",
+      "expectedIntegratedObject": {
+        "mode": "040000",
+        "type": "tree",
+        "oid": "5dd65f341de318b2c1bb49fdca0853bf81bb191d"
+      }
+    }
+  ],
+  "selectedSourceHead": "fdac75aedb7afe280cd67590fd02f693a4eb72d5"
+}

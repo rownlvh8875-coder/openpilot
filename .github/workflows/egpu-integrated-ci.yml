@@ -14,6 +14,7 @@ on:
       - dev-integrated-guardian-replay-faults-e893
       - dev-integrated-model-contracts
       - dev-integrated-provenance-fault-review-20260908
+      - dev-integrated-offline-review-bundle-20260908
   pull_request:
     branches:
       - carrot-wip
@@ -37,6 +38,13 @@ jobs:
 
       - name: Install locked NumPy for Carrot cut-out regression
         run: python -m pip install --disable-pip-version-check --no-deps numpy==2.4.3
+
+      - name: Install offline route viewer test dependencies
+        run: python -m pip install --disable-pip-version-check pytest==8.4.2 aiohttp==3.13.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Compile integrated Python sources
         run: |
@@ -72,13 +80,20 @@ jobs:
             tools/egpu_integrated_fault_injection.py \
             tools/egpu_integrated_guardian_replay.py \
             tools/egpu_integrated_review_queue.py \
+            tools/egpu_integrated_review_bundle.py \
             tools/egpu_integrated_source_compat.py \
             tools/carrot_route_vault/build_bundle.py \
+            tools/carrot_route_vault/viewer.py \
             openpilot/selfdrive/carrot/radar/tools/radar_web_export.py \
             tools/apply_egpu_integrated_modeld_patch.py
 
       - name: Verify modeld patch restores reviewed Carrot source
         run: python tools/apply_egpu_integrated_modeld_patch.py
+
+      - name: Fetch reviewed upstream objects for source tests
+        # Selective integration does not make the excluded upstream commits ancestors.
+        # Fetch objects only; keep checkout and the later live-upstream gate unchanged.
+        run: git fetch --no-tags https://github.com/ajouatom/openpilot.git b7ab68addc29c3b9dc8f02023de36dba7109ed8c
 
       - name: Run hardware-free integrated runtime tests
         env:
@@ -101,12 +116,85 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_guardian_replay_faults \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_offline_integrity \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_queue \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_review_bundle \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_model_contract
+
+      - name: Verify committed offline review bundle CLI
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tempfile
+          from tools.egpu_integrated_fault_injection import fallback_fault, replay_row
+
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], text=True).strip()
+          def cli(script, *args, expected=0):
+            result = subprocess.run([sys.executable, script, *map(str, args)], capture_output=True, text=True)
+            assert result.returncode == expected, result.stdout + result.stderr
+            return json.loads(result.stdout)
+
+          with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            rows = [replay_row(1, cutout_time=0.0, cutout_confidence=0.0),
+                    replay_row(2, stop_shadow=True, cutout_time=0.7, cutout_confidence=0.4),
+                    replay_row(3, active_backend='qcom', fault=fallback_fault(3)),
+                    replay_row(4, active_backend='qcom', fault=fallback_fault(4, outputFrameId=3))]
+            # Newly generated synthetic fixtures have no producer/hardware claim.
+            for row in rows:
+              row.update(sourceHead=head, sourceBranch=branch)
+            (directory / 'input.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in rows), encoding='utf-8')
+            cli('tools/egpu_integrated_model_contract.py', 'build', '--repo', '.', '--generation', '0',
+                '--expected-branch', branch, '--output', directory / 'contract.json')
+            tool = 'tools/egpu_integrated_review_bundle.py'
+            bundle = directory / 'bundle'
+            receipt = cli(tool, 'build', '--rows', directory / 'input.jsonl', '--contract', directory / 'contract.json',
+                          '--policy', 'config/egpu_integrated_review_policy.example.json', '--output', bundle,
+                          '--expected-source-head', head, '--expected-source-branch', branch, '--evidence-kind', 'synthetic')
+            # Preserve the creation receipt outside the bundle; do not read its ID from the manifest for verification.
+            (directory / 'receipt.json').write_text(json.dumps(receipt), encoding='utf-8')
+            verify_args = ('verify', '--bundle', bundle, '--expected-bundle-id', receipt['bundleId'],
+                           '--expected-source-head', head, '--expected-source-branch', branch)
+            verified = cli(tool, *verify_args)
+            assert verified['status'] == 'VERIFIED_OFFLINE_CONSISTENCY'
+            assert verified['evidenceKind'] == 'synthetic'
+            for name in ('controlAuthorization', 'runtimeActivationAuthorization', 'shadowExecutionAuthorization',
+                         'publicRoadAuthorization', 'hardwareValidationPerformed', 'commissioningEligible',
+                         'modelExecutionVerified', 'producerAssertionsVerified'):
+              assert verified[name] is False, name
+            events = [json.loads(line) for line in (bundle / 'events.jsonl').read_text().splitlines()]
+            assert events[1]['combinedReviewBucket'] == 'PRIORITY_REVIEW'
+            assert events[2]['fault']['sameFrameOutputPreserved'] is True
+            assert events[3]['combinedReviewBucket'] == 'ROOT_CAUSE'
+            assert json.loads((bundle / 'review-queue.json').read_text())['eventsRepresented'] == 4
+            (bundle / 'summary.json').write_bytes(b'{}\n')
+            assert cli(tool, *verify_args, expected=2)['status'] == 'HOLD'
+          print('committedOfflineReviewBundleCLI=PASS (synthetic build, recomputation, tamper rejection)')
+          PY
 
       - name: Run synthetic fault-injection suite
         env:
           PYTHONPATH: ${{ github.workspace }}
         run: python tools/egpu_integrated_fault_injection.py --all
+
+      - name: Verify offline route viewer regressions
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        # These pure tests use local fixtures only; repository conftest starts device/Params fixtures.
+        run: python -m pytest -q --noconftest -o addopts= -p no:cacheprovider tools/carrot_route_vault/tests
+
+      - name: Verify desktop radar continuity and graph calculations
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        # Exercise the shared calculations without constructing the native desktop UI.
+        run: python -m pytest -q --noconftest -o addopts= -p no:cacheprovider openpilot/selfdrive/carrot/tests/test_radar_lead_simulator.py -k 'continuity or graph'
+
+      - name: Verify radar browser timeline and graph behavior
+        run: node --test tools/carrot_route_vault/tests/test_radar_view.mjs
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
@@ -213,6 +301,7 @@ jobs:
             Path('tools/egpu_integrated_fault_injection.py'),
             Path('tools/egpu_integrated_guardian_replay.py'),
             Path('tools/egpu_integrated_review_queue.py'),
+            Path('tools/egpu_integrated_review_bundle.py'),
           ]
           forbidden_modules = (
             'openpilot.cereal.messaging', 'openpilot.common.params', 'msgq.visionipc', 'tinygrad',

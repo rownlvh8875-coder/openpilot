@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "guardian": {
+    "max_frame_age": 1,
+    "max_execution_ms": null,
+    "curvature_abs": 0.003,
+    "curvature_rel": 0.25,
+    "accel_abs": 0.5,
+    "max_hardware_age_s": 5.0,
+    "reject_supply_fault": true
+  },
+  "temporal": {
+    "close_lead_m": 15.0,
+    "close_acquisition_m": 30.0,
+    "closing_fast_mps": -5.0,
+    "cutin_candidate_rel_speed_mps": -1.0,
+    "rapid_range_closure_mps": -5.0,
+    "max_range_rate_dt_s": 1.0,
+    "max_scene_gap_frames": 2,
+    "max_action_timestamp_skew_s": null,
+    "standstill_speed_mps": 0.3,
+    "creep_speed_mps": 3.0
+  }
+}
