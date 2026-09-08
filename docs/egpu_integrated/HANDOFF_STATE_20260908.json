@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "purpose": "cross-machine integrated-v6 handoff",
+  "dateKst": "2026-09-08",
+  "operationalSource": {
+    "branch": "carrot-wip-integrated-v6",
+    "head": "7c70355361c929142b520e41412a7965d27bb60e",
+    "frozenForHardwareEvidence": true
+  },
+  "handoff": {
+    "branch": "dev-integrated-handoff-20260908",
+    "vehicleExpectedHead": false
+  },
+  "mergedWork": [
+    {"pr": 15, "merge": "29a40d3b", "purpose": "source-bound paired offline input adapter"},
+    {"pr": 16, "merge": "89cd6bcd", "purpose": "read-only paired evidence discovery"},
+    {"pr": 17, "merge": "7c703553", "purpose": "unverified versus invalid discovery classification"}
+  ],
+  "validation": {
+    "hardwareFreeUnittest": "260/260 PASS",
+    "pairedDiscoveryFocused": "9/9 PASS",
+    "syntheticFault": "29/29 PASS",
+    "routeViewer": "18/18 PASS",
+    "radar": "15/15 PASS",
+    "browser": "6/6 PASS"
+  },
+  "postMergeCi": {
+    "egpuIntegratedCi": "SUCCESS",
+    "userDocs": "SUCCESS"
+  },
+  "upstreamReview": {
+    "reviewedHead": "b7ab68addc29c3b9dc8f02023de36dba7109ed8c",
+    "reviewStatus": "REVIEWED_WITH_EXCLUSIONS",
+    "overallCompatible": true,
+    "integrationBoundaryStatus": "EXACT_REVIEWED",
+    "v6RebaseStatus": "EXACT_REVIEWED",
+    "provenanceStatus": "EXACT_REVIEWED"
+  },
+  "evidence": {
+    "discoverySchemaVersion": 2,
+    "state": "NO_PAIRED_EVIDENCE_FOUND",
+    "actualPostbootPass": false,
+    "actualS1Evidence": false,
+    "actualS2aEvidence": false,
+    "actualPairedBigSmallEvidence": false
+  },
+  "companyNetworkAccess": {
+    "homeNasSmb": false,
+    "homeNasHttps": "blocked_by_company_security",
+    "commaSsh": false
+  },
+  "next": {
+    "priority": "home NAS paired-evidence discovery",
+    "ifNoEvidence": "POSTBOOT_ALL_FEATURES_OFF then S1_OBSERVER_ONLY",
+    "skipS2aS2bS4b": true
+  },
+  "authorizations": {
+    "control": false,
+    "publicRoad": false,
+    "shadowExecution": false,
+    "commissioningAutomaticExecution": false
+  }
+}

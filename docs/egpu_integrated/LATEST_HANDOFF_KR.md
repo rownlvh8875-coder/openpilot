@@ -133,3 +133,5 @@ actual paired BIG/SMALL evidence = 없음
 ## 상세 다음 세션 runbook
 
 실제 NAS/차량 세션의 명령 순서는 [`NEXT_HARDWARE_SESSION_KR.md`](NEXT_HARDWARE_SESSION_KR.md)를 따른다. 이 문서보다 임의로 S2A/S2B/S4B 또는 shadow 실행을 앞당기지 않는다.
+
+Machine-readable 상태는 [`HANDOFF_STATE_20260908.json`](HANDOFF_STATE_20260908.json)에 동일하게 기록한다.
