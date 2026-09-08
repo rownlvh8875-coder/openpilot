@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Explicit offline Guardian research and review policy",
+  "description": "Complete research policy input. No defaults are applied and these values do not establish vehicle safety limits or commissioning approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "guardian", "temporal"],
+  "properties": {
+    "schemaVersion": {"type": "integer", "const": 1},
+    "guardian": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_frame_age", "max_execution_ms", "curvature_abs", "curvature_rel",
+        "accel_abs", "max_hardware_age_s", "reject_supply_fault"
+      ],
+      "properties": {
+        "max_frame_age": {"type": "integer", "minimum": 0},
+        "max_execution_ms": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "curvature_abs": {"type": "number", "exclusiveMinimum": 0},
+        "curvature_rel": {"type": "number", "exclusiveMinimum": 0},
+        "accel_abs": {"type": "number", "exclusiveMinimum": 0},
+        "max_hardware_age_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "reject_supply_fault": {"type": "boolean"}
+      }
+    },
+    "temporal": {
+      "type": "object",
+      "additionalProperties": false,
+      "$comment": "The existing TemporalHeuristicPolicy.validate() also enforces close_acquisition_m >= close_lead_m and standstill_speed_mps < creep_speed_mps. Standard JSON Schema cannot compare sibling numeric values; the bundle loader must call that validator.",
+      "required": [
+        "close_lead_m", "close_acquisition_m", "closing_fast_mps",
+        "cutin_candidate_rel_speed_mps", "rapid_range_closure_mps",
+        "max_range_rate_dt_s", "max_scene_gap_frames", "max_action_timestamp_skew_s",
+        "standstill_speed_mps", "creep_speed_mps"
+      ],
+      "properties": {
+        "close_lead_m": {"type": "number", "exclusiveMinimum": 0},
+        "close_acquisition_m": {"type": "number", "exclusiveMinimum": 0},
+        "closing_fast_mps": {"type": "number", "exclusiveMaximum": 0},
+        "cutin_candidate_rel_speed_mps": {"type": "number", "exclusiveMaximum": 0},
+        "rapid_range_closure_mps": {"type": "number", "exclusiveMaximum": 0},
+        "max_range_rate_dt_s": {"type": "number", "exclusiveMinimum": 0},
+        "max_scene_gap_frames": {"type": "integer", "minimum": 0},
+        "max_action_timestamp_skew_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "standstill_speed_mps": {"type": "number", "exclusiveMinimum": 0},
+        "creep_speed_mps": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}
