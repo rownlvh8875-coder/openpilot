@@ -73,6 +73,7 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_runtime \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_source_compat \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_v6_migration \
+            openpilot.selfdrive.modeld.tests.test_egpu_integrated_carrot_cutout \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_transition_safety \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_commissioning \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s1_evidence \
@@ -81,14 +82,6 @@ jobs:
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_qualification_binding \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_commissioning_ledger \
             openpilot.selfdrive.modeld.tests.test_egpu_integrated_s4b_entry_gate
-
-      - name: Run focused Carrot cut-out tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python -m pytest -q \
-            openpilot/selfdrive/carrot/tests/test_trajectory_cutout.py \
-            openpilot/selfdrive/carrot/tests/test_cutout_mpc_integration.py
 
       - name: Verify current upstream Carrot integration boundary
         run: python tools/egpu_integrated_source_compat.py --output /tmp/egpu-upstream-compat.json
