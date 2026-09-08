@@ -168,3 +168,29 @@ python tools/egpu_integrated_review_bundle.py build \
 receipt에는 생성 당시 adapter Git HEAD/branch와 source SHA256을 기록한다. 이후 개발 브랜치가 통합 브랜치에 병합되어 HEAD/branch가 달라져도 **adapter 소스 바이트 SHA256이 동일하면** 기록된 생성 commit을 검증한 뒤 재계산할 수 있다.
 
 현재 verifier의 adapter 소스 SHA256이 기록된 값과 다르면 새 분석기 검토가 필요하며 기존 receipt를 그대로 재계산하지 않는다. HEAD가 같다는 이유만으로 변경된 소스를 허용하지 않는다.
+
+## Paired evidence 읽기 전용 탐색
+
+실제 자료가 어느 저장장치에 있는지 불확실할 때는 먼저 discovery 도구를 사용한다. 이 도구는 모델을 실행하지 않고 지정한 root만 읽는다.
+
+```text
+python tools/egpu_integrated_paired_evidence_discovery.py \
+  --root <mounted-NAS-or-local-root> \
+  --expected-source-head <40-char-source-sha> \
+  --expected-source-branch <source-branch> \
+  --output <new-discovery-report.json>
+```
+
+여러 저장장치는 `--root`를 반복해서 지정한다. symlink/junction 디렉터리는 따라가지 않으며, `--max-depth`와 `--max-files`로 대규모 NAS 탐색 범위를 제한할 수 있다.
+
+판정은 다음을 구분한다.
+
+- `VERIFIED_PAIRED_EVIDENCE_FOUND`: self-contained adapter evidence가 기존 verifier를 통과함
+- `INVALID_PAIRED_EVIDENCE_FOUND`: adapter 형태는 있으나 source/receipt/hash 재검증 실패
+- `LOOSE_PAIRED_CANDIDATE_FOUND`: SMALL/BIG 또는 paired JSONL은 있으나 exact provenance 부족
+- `SHADOW_OUTPUT_ONLY_FOUND`: shadow 출력은 있으나 matching active output/provenance 부족
+- `RAW_ROUTE_ONLY_FOUND`: rlog/qlog만 존재하며 동일 입력 BIG/SMALL 결과를 재구성할 수 없음
+- `NO_PAIRED_EVIDENCE_FOUND`: 접근한 범위에 실제 paired 증거 후보가 없음
+- `NO_ACCESSIBLE_ROOTS`: 지정 storage 자체에 접근할 수 없음
+
+어떤 상태도 모델 실행, commissioning, control 또는 public-road 권한을 만들지 않는다.
