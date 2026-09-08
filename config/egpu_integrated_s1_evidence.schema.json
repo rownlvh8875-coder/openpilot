@@ -3,10 +3,14 @@
   "title": "Integrated eGPU S1 observer evidence",
   "type": "object",
   "additionalProperties": false,
-  "required": ["sourceHead", "sourceBranch", "legs"],
+  "required": ["schemaVersion", "stage", "sourceHead", "sourceBranch", "legs", "controlAuthorization", "publicRoadAuthorization"],
   "properties": {
+    "schemaVersion": {"const": 2},
+    "stage": {"const": "S1_OBSERVER_EVIDENCE"},
     "sourceHead": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "sourceBranch": {"type": "string", "minLength": 1},
+    "controlAuthorization": {"const": false},
+    "publicRoadAuthorization": {"const": false},
     "legs": {
       "type": "object",
       "additionalProperties": false,
