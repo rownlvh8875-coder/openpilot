@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import numpy as np
 from extract import make_windows, read_segments
-from model import fit_candidates, evaluate, baseline_metrics, predict
+from model import RESPONSE_MODES, fit_candidates, evaluate, baseline_metrics, predict
 
 
 def subset(windows, mask):
@@ -24,9 +24,12 @@ def outside_range(training, testing):
   return float(np.mean((testing < np.min(training)) | (testing > np.max(training))))
 
 
-def input_coverage(training, testing, delay_steps):
+def input_coverage(training, testing, delay_steps, response_mode='absolute'):
   """Use only the feature samples consumed by the selected command model."""
-  used = slice(11 - delay_steps, 111 - delay_steps)
+  if response_mode not in RESPONSE_MODES:
+    raise ValueError('response_mode must be absolute or anchored')
+  start = 10 if response_mode == 'anchored' else 11
+  used = slice(start - delay_steps, 111 - delay_steps)
   train_v, test_v = training['v'][:, used], testing['v'][:, used]
   train_u, test_u = training['u'][:, used], testing['u'][:, used]
   return {'speed_range_mps': [float(test_v.min()), float(test_v.max())],
@@ -35,26 +38,28 @@ def input_coverage(training, testing, delay_steps):
           'outside_training_command_fraction': outside_range(train_u, test_u)}
 
 
-def assess_rows(rows, train_end, validation_end, driver_limit=50):
+def assess_rows(rows, train_end, validation_end, driver_limit=50, response_mode='absolute'):
+  if response_mode not in RESPONSE_MODES:
+    raise ValueError('response_mode must be absolute or anchored')
   selected = rows.copy()
   selected[:, 6] *= selected[:, 7] <= driver_limit
   windows = make_windows(selected)
   splits = split_windows(windows, train_end, validation_end)
-  result = {'driver_limit': driver_limit, 'eligible_grid_rows': int(selected[:, 6].sum()),
+  result = {'driver_limit': driver_limit, 'response_mode': response_mode, 'eligible_grid_rows': int(selected[:, 6].sum()),
             'windows': {k: len(v['y']) for k, v in splits.items()},
             'controller_comparison': 'NOT_VALIDATED',
             'limitation': 'Observed future command/speed/roll conditioning is not causal validation of a changed controller.'}
   if any(len(w['y']) < 2 for w in splits.values()):
     result['status'] = 'INSUFFICIENT_WINDOWS'
     return result
-  command, search = fit_candidates(splits['train'], splits['validation'])
-  no_command, _ = fit_candidates(splits['train'], splits['validation'], input_mode='no_command')
+  command, search = fit_candidates(splits['train'], splits['validation'], response_mode=response_mode)
+  no_command, _ = fit_candidates(splits['train'], splits['validation'], input_mode='no_command', response_mode=response_mode)
   result.update(model=command, no_command_model=no_command, candidate_search=search, metrics={}, coverage={}, groups={})
   for name, w in splits.items():
     result['metrics'][name] = {'command': evaluate(command, w), 'no_command': evaluate(no_command, w), **baseline_metrics(w)}
     result['coverage'][name] = {
       'segments': sorted(set(w['sg'].astype(int).tolist())),
-      **input_coverage(splits['train'], w, command['delay_steps']),
+      **input_coverage(splits['train'], w, command['delay_steps'], response_mode),
       'outcome_speed_range_mps': [float(w['v'][:, 10:111].min()), float(w['v'][:, 10:111].max())],
       'angle_range_deg': [float(w['y'].min()), float(w['y'].max())],
     }
@@ -97,13 +102,14 @@ def main():
   cli.add_argument('--train-end', type=int, required=True)
   cli.add_argument('--validation-end', type=int, required=True)
   cli.add_argument('--input-mode', choices=['mean', 'last'], default='mean')
+  cli.add_argument('--response-mode', choices=RESPONSE_MODES, default='absolute')
   args = cli.parse_args()
   if args.train_end >= args.validation_end:
     cli.error('--train-end must precede --validation-end')
   rows, inventory = read_segments(args.logs, args.source, driver_limit=100, input_mode=args.input_mode,
                                  progress=lambda row: print(row['segment'], row['status'], flush=True))
-  results = [assess_rows(rows, args.train_end, args.validation_end, limit) for limit in (50, 30, 100)]
-  report = {'format_version': 1, 'dt_seconds': .05, 'input_mode': args.input_mode,
+  results = [assess_rows(rows, args.train_end, args.validation_end, limit, args.response_mode) for limit in (50, 30, 100)]
+  report = {'format_version': 1, 'dt_seconds': .05, 'input_mode': args.input_mode, 'response_mode': args.response_mode,
             'train_end': args.train_end, 'validation_end': args.validation_end,
             'inventory': inventory, 'assessments': results}
   args.output.parent.mkdir(parents=True, exist_ok=True)

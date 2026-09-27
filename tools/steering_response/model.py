@@ -10,6 +10,7 @@ import numpy as np
 TAUS = (0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 2.0)
 DELAYS = (0, 1, 2, 3, 4, 6, 8, 10)
 HORIZONS = (0.1, 0.25, 0.5, 1.0, 3.0, 5.0)
+RESPONSE_MODES = ('absolute', 'anchored')
 FEATURE_NAMES = {
   'command': ['command', 'command_speed_centered', 'speed_centered', 'roll', 'intercept'],
   'no_command': ['speed_centered', 'roll', 'intercept'],
@@ -19,6 +20,11 @@ FEATURE_NAMES = {
 def _check_dt(dt):
   if not np.isfinite(dt) or dt <= 0:
     raise ValueError('dt must be finite and positive')
+
+
+def _check_response_mode(response_mode):
+  if response_mode not in RESPONSE_MODES:
+    raise ValueError('response_mode must be absolute or anchored')
 
 
 def _windows(windows, minimum=1):
@@ -54,27 +60,36 @@ def _features(windows, input_mode):
   return np.stack(columns, axis=-1)
 
 
-def _filtered(features, alpha, delay):
+def _filtered(features, alpha, delay, response_mode='absolute'):
   """Free recurrence: the initial observed angle is added separately."""
   filtered = np.empty((features.shape[0], 100, features.shape[2]))
   state = np.zeros((features.shape[0], features.shape[2]))
+  anchor = features[:, 10 - delay] if response_mode == 'anchored' else None
   for k in range(1, 101):
-    state = alpha * state + (1.0 - alpha) * features[:, 10 + k - delay]
+    sample = features[:, 10 + k - delay]
+    if anchor is not None:
+      sample = sample - anchor
+    state = alpha * state + (1.0 - alpha) * sample
     filtered[:, k - 1] = state
   return filtered
 
 
 def _predict(model, windows, dt):
   alpha = np.exp(-dt / model['tau'])
-  filtered = _filtered(_features(windows, model['input_mode']), alpha, model['delay_steps'])
-  decay = alpha ** np.arange(1, 101)
-  future = filtered @ np.asarray(model['theta']) + windows['y'][:, :1] * decay
+  response_mode = model.get('response_mode', 'absolute')
+  filtered = _filtered(_features(windows, model['input_mode']), alpha, model['delay_steps'], response_mode)
+  if response_mode == 'anchored':
+    future = filtered @ np.asarray(model['theta']) + windows['y'][:, :1]
+  else:
+    decay = alpha ** np.arange(1, 101)
+    future = filtered @ np.asarray(model['theta']) + windows['y'][:, :1] * decay
   return np.column_stack((windows['y'][:, 0], future))
 
 
 def predict(model, windows, dt=0.05):
   """Return W x 101 angles, using only y[:, 0] and causal recorded inputs."""
   _check_dt(dt)
+  _check_response_mode(model.get('response_mode', 'absolute'))
   arrays = _windows(windows)
   try:
     tau, delay = float(model['tau']), float(model['delay_steps'])
@@ -136,22 +151,26 @@ def baseline_metrics(windows, dt=0.05):
   return result
 
 
-def fit_candidates(train, validation, dt=0.05, input_mode='command'):
+def fit_candidates(train, validation, dt=0.05, input_mode='command', response_mode='absolute'):
   """Fit on train only; choose tau/lag using validation trajectory RMSE.
 
   Supply a distinct, untouched test split only to evaluate(), never here.
   Search rows retain each train-fitted coefficient vector for auditability.
   """
   _check_dt(dt)
+  _check_response_mode(response_mode)
   training, validating = _windows(train, 2), _windows(validation, 2)
   features = _features(training, input_mode)
   search = []
   # Speed and roll receive the same lag search in both models for a fair ablation.
   for tau in TAUS:
     alpha = np.exp(-dt / tau)
-    target = (training['y'][:, 1:] - training['y'][:, :1] * alpha ** np.arange(1, 101)).ravel()
+    if response_mode == 'anchored':
+      target = (training['y'][:, 1:] - training['y'][:, :1]).ravel()
+    else:
+      target = (training['y'][:, 1:] - training['y'][:, :1] * alpha ** np.arange(1, 101)).ravel()
     for delay in DELAYS:
-      design = _filtered(features, alpha, delay).reshape(-1, features.shape[-1])
+      design = _filtered(features, alpha, delay, response_mode).reshape(-1, features.shape[-1])
       scale = np.sqrt(np.mean(design ** 2, axis=0))
       scale[scale < 1e-12] = 1.0
       normalized = design / scale
@@ -161,7 +180,7 @@ def fit_candidates(train, validation, dt=0.05, input_mode='command'):
         'tau': float(tau), 'delay_steps': int(delay), 'delay_seconds': float(delay * dt),
         'delay_interpretation': 'effective recorded-signal lag', 'dt': float(dt),
         'theta': theta.tolist(), 'feature_names': list(FEATURE_NAMES[input_mode]),
-        'input_mode': input_mode,
+        'input_mode': input_mode, 'response_mode': response_mode,
       }
       metrics = _metrics(validating['y'], _predict(candidate, validating, dt), dt)
       candidate['validation_rmse_deg'] = metrics['rmse_deg']
