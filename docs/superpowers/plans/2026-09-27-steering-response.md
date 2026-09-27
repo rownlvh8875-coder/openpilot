@@ -32,8 +32,8 @@
 - [x] Add extraction/alignment tests, see failures, implement `extract.py`: `align_segment(records, segment, driver_limit=50)` and `make_windows(rows)`.
 - [x] Add causal prediction and synthetic-recovery tests, see failures, implement `model.py`: `fit_candidates`, `predict`, `evaluate`, `baseline_metrics`.
 - [x] Add `assess.py` CLI, run complete extraction and train/validation/test assessment on authorized local logs. Keep results private.
-- [ ] Compare driver filtering sensitivity and source timing; independently review code and conclusions. Fix material findings, rerun relevant tests, commit tool and create draft PR.
-- [ ] Save a user report with exact statistics, limitations, code provenance and next action.
+- [x] Compare driver filtering sensitivity and source timing; independently review code and conclusions. Fix material findings, rerun relevant tests, commit tool and create draft PR.
+- [x] Save a user report with exact statistics, limitations, code provenance and next action.
 
 ## Verification ledger
 
@@ -42,3 +42,4 @@
 - All three were reproduced as failing regressions and fixed. Final standalone suite: 19/19 passed; compilation and whitespace checks passed. Root pytest collection could not start because pytest is not installed in this runtime. Vehicle/native integration is outside this offline tool's validation.
 - Initial speed eligibility 15–30 m/s left no training windows. Before fitting any model, eligibility was expanded to 8–40 m/s based on route coverage; chronological split boundaries stayed fixed. This is documented to distinguish coverage inspection from outcome-driven tuning.
 - Code lives on an isolated development branch. Review did not require changes to vehicle runtime or settings. No findings were deferred.
+- Final full-log CLI rerun retained the failed-prediction conclusion for all three driver filters. The private report was delivered separately; PR #19 remains draft and unmerged. No Kp performance ranking or physical actuator-delay estimate was emitted.
