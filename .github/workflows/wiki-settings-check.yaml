@@ -40,7 +40,9 @@ jobs:
       - name: Check out current Wiki without write credentials
         id: wiki
         env:
-          WIKI_URL: https://github.com/${{ github.repository }}.wiki.git
+          # Match the published documentation source used by Carrot Web.
+          # GitHub does not copy the upstream Wiki when a repository is forked.
+          WIKI_URL: https://github.com/ajouatom/openpilot.wiki.git
         run: |
           git clone --depth 1 "$WIKI_URL" "$RUNNER_TEMP/carrot-wiki"
           echo "sha=$(git -C "$RUNNER_TEMP/carrot-wiki" rev-parse HEAD)" >> "$GITHUB_OUTPUT"

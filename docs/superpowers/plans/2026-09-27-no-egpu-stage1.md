@@ -49,6 +49,8 @@
 
 전체 `pytest -o addopts='' -q`는 미빌드 네이티브 모듈 `openpilot.common.params_pyx`를 불러오지 못해 conftest 단계에서 종료 코드 4로 중단됐다. 전체 테스트 통과나 기기 검증을 주장하지 않는다.
 
+초안 PR #18의 첫 GitHub 사용자 문서 검사는 통과했다. Wiki 검사는 포크의 `openpilot.wiki.git` 익명 복제 단계에서 종료 코드 128로 실패했다. 읽기 전용 검사 대상을 Carrot Web이 실제 조회하는 `ajouatom/openpilot.wiki.git`으로 맞췄다. 검증기와 읽기 전용 권한은 유지하며, Wiki 게시 경로는 변경하지 않는다. 원격 재검사 결과는 PR의 Checks에서 확인한다.
+
 ## 후속 단계
 
 | 단계 | 작업과 판단 기준 |
