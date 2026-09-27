@@ -155,10 +155,16 @@ class LatControlTorque(LatControl):
         self.pid.k_f = lateralTorqueKf
         self.pid._k_d = [[0], [lateralTorqueKd]]
         self.torque_params.latAccelOffset = self.latAccelOffset_default
-      elif self.lateralTorqueCustom > 1:  # 1 -> 0, reset to default
+      elif self.lateralTorqueCustom > 0:  # custom -> off, restore the vehicle tune
         self.torque_params.latAccelFactor = self.latAccelFactor_default
         self.torque_params.friction = self.friction_default
         self.torque_params.latAccelOffset = self.latAccelOffset_default
+        # Custom gains only modify the PID; the torque message retains CP's gains.
+        # Preserve the integrator while restoring the constructor's tuning.
+        self.pid._k_p = [[0], [self.torque_params.kp]]
+        self.pid._k_i = [[0], [self.torque_params.ki]]
+        self.pid.k_f = self.torque_params.kf
+        self.pid._k_d = [[0], [0.0]]
       self.lateralTorqueCustom = lateralTorqueCustom
 
     pid_log = log.ControlsState.LateralTorqueState.new_message()
