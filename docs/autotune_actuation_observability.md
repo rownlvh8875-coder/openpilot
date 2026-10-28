@@ -94,8 +94,8 @@ Files: focused behavior tests, a fork-only observability workflow and this docum
 
 - [x] Pin synthetic legacy schema/CAN evidence at the exact base; compare real controller outputs, apply arguments and CAN bytes/count/order with observations enabled/absent.
 - [x] Run native schema loading/generation, regression, lint/type checks where supported, and document all exclusions or blockers.
-- [ ] Obtain fresh read-only whole-branch review, fix material findings with regression tests, push only the clean base and feature to the user's fork, and create the required Draft PR.
-- [ ] Inspect exact-head CI, record the precise readiness-for-re-audit decision, keep the worktree clean and stop. Do not declare Phase 8B ready.
+- [x] Obtain fresh read-only whole-branch review, fix material findings with regression tests, push only the clean base and feature to the user's fork, and create the required Draft PR.
+- [x] Inspect exact-head implementation CI and record the readiness-for-re-audit decision. The final documentation head must also pass the same PR checks before completion is reported; keep the worktree clean and stop. Do not declare Phase 8B ready.
 
 ## Validation ledger
 
@@ -135,7 +135,21 @@ Local result: 287 passed, zero failed/skipped. New-helper branch-inclusive cover
 
 Real offline CAN evidence: Honda Civic, Toyota RAV4, Nissan Leaf and VW ID.4 MEB each execute forty synthetic cycles both with pinned-base controller.update and with current code plus attached observations/receipt copying. Actual CarInterface, CarController, DBC and CAN packers run; no control algorithm or packer is mocked. All returned actuator values, CAN payload bytes/count/order and synthetic settings operation traces match. Existing interface-construction settings writes are captured only in an in-memory test double; no actual Params read/write occurs. All temporary aliases are restored, including modules imported during a test. These profiles prove software regression behavior for the synthetic cases, not vehicle suitability, road performance or physical acceptance.
 
-The fresh core review at 872d7f54096e36a1efd012941851109cb808960d found zero Critical/Important/Minor issues and independently reran 283 checks. Final review/CI must additionally cover the later return-state enum clarification and Task 3 files; exact remote outcomes are recorded by the final Draft PR checks/report.
+The fresh core review at 872d7f54096e36a1efd012941851109cb808960d found zero Critical/Important/Minor issues and independently reran 283 checks. Final read-only review through 5b0d6e98cf0778942f4ee407cb15d7164ad02a21 additionally covered the return-state enum and Task 3 files, found zero Critical/Important/Minor issues and independently passed all 287 tests. No runtime change follows that reviewed implementation head.
+
+## Qualification and publication record
+
+Status: **OBSERVABILITY_READY_FOR_CONTRACT_REAUDIT**. This is source-observability evidence readiness only. Phase 8B remains NOT_STARTED; its earlier precheck remains BLOCKED on the original source. Persistence and Apply remain NOT_AUTHORIZED.
+
+The implementation head 5b0d6e98cf0778942f4ee407cb15d7164ad02a21 passed fresh native-Linux-checkout verification and all five exact-head GitHub checks:
+
+- [Feature push, both Python versions](https://github.com/rownlvh8875-coder/openpilot/actions/runs/40635271106).
+- [Draft PR, both Python versions](https://github.com/rownlvh8875-coder/openpilot/actions/runs/40635301019).
+- [Existing mapped-user-docs check](https://github.com/rownlvh8875-coder/openpilot/actions/runs/40635301004).
+
+Draft PR: https://github.com/rownlvh8875-coder/openpilot/pull/20, based on this fork's base/carrot-wip-604bc0a at exact upstream 604bc0a22733e648ec05b268da1ffaae7db52a69. Feature and clean base were pushed normally; fork carrot-wip was rechecked at unchanged 1ab3448148c936ea257389abaaf6e4ab26dd4af0. There is no upstream PR or requested upstream reviewer/notification, history rewrite, force push, vehicle installation or subsequent cyberpilot-autotune commit.
+
+The final documentation-only commit records these results; the PR checks/final report identify its exact head and fresh CI outcomes without embedding its own hash in its source. All four real CAN profiles ran the source Python CAN backend with generated DBCs. Native CAN extension, full production SCons build, vehicle/hardware/IPC/Params and real-log acceptance remain unverified and outside this offline qualification. No physical-effect or timing-equivalence claim follows from these tests.
 
 ## Separate Phase 8A contract re-audit procedure
 
