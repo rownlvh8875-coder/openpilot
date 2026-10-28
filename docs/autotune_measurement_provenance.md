@@ -39,7 +39,10 @@ Execute inline with TDD and one final independent read-only implementation revie
   unchanged VM/controller/Params behavior and delayed source lookup.
 - [x] Maintain existing receipt compatibility, all regression and offline CAN
   checks; require new-helper branch coverage >=95%; update fork CI and docs.
-- [ ] Fresh review, final exact-head verification, append-only push to PR #20.
+- [x] Fresh independent implementation review and clean-checkout verification.
+
+Publication uses append-only commits on PR #20. Final exact-head CI outcomes are
+recorded in the PR and completion report without a self-referential source hash.
 
 Review focus: stale health after a sticky startup latch; Float32 rounding of actual
 Python calculation values; fallback incorrectly marked live; missing/unknown
@@ -178,5 +181,44 @@ MEB desired versus measured semantics and the remaining caller baseline/policy
 contracts. Model curvature is not a physical measurement, CAN acknowledgement or
 vehicle-response confirmation. No Phase 8B readiness follows from this source work.
 
-Status pending final review/CI: OBSERVABILITY_READY_FOR_MEASUREMENT_REAUDIT is the
-only proposed completion status. No Phase 8A.4 or other feature starts here.
+## Implementation qualification record
+
+Status: **OBSERVABILITY_READY_FOR_MEASUREMENT_REAUDIT**. This is source evidence
+readiness for a separate audit only. Phase 8B, persistence and Apply remain
+unauthorized; no Phase 8A.4 or other feature starts here.
+
+The independently reviewed implementation head is
+b4e7334cf2275ba4e9f90b68ea82cf10302190d3. Fresh native Linux checkout verification
+passed **378 tests, zero failed/skipped/warnings**. Branch-inclusive coverage is
+100.00% for the new helper and 97.37% combined across the three observed helpers;
+existing receipt 96.18% and lateral helper 94.74% are maintained. No whole-project
+coverage claim is made. Four real CAN profiles run with both v1/v2 metadata and
+forty cycles per variant; tracked DBCs remain unchanged.
+
+Ruff reports no added diagnostics (41 pre-existing diagnostics retained), with
+13 new Python files relative to upstream passing formatting. ty passes all three
+runtime evidence modules. Native Cap'n Proto generation and g++ syntax checking
+pass for four generated C++ units. The source AST comparison and full calculation
+differentials preserve original control operations/order and Params access.
+
+An independent read-only review of 4d89f044 through b4e7334 found zero Critical,
+Important or Minor findings and independently repeated the tests/type/schema
+checks. Only qualification documentation follows that implementation head.
+
+Executed from the Linux checkout using the existing isolated development runtime:
+
+```sh
+git diff --check 604bc0a22733e648ec05b268da1ffaae7db52a69 HEAD
+/tmp/carrot-observability-env/bin/python tools/actuation_observability/verify.py lint
+/tmp/carrot-observability-env/bin/ty check --no-progress openpilot/selfdrive/car/actuation_receipt.py openpilot/selfdrive/controls/lib/lateral_observation.py openpilot/selfdrive/controls/lib/measurement_observation.py
+env PATH=/tmp/carrot-capnp-tools/extracted/usr/bin:/usr/bin:/bin LD_LIBRARY_PATH=/tmp/carrot-capnp-tools/extracted/usr/lib/x86_64-linux-gnu /tmp/carrot-observability-env/bin/python tools/actuation_observability/verify.py schema --capnp-include /tmp/carrot-capnp-tools/extracted/usr/include
+/tmp/carrot-observability-env/bin/python tools/actuation_observability/verify.py test
+/tmp/carrot-observability-env/bin/python -m coverage report --precision=2
+git status --short
+```
+
+The tool enforces new-helper coverage >=95%. Full production SCons, native CAN
+extension, device Params/IPC, hardware, live timing and real-log acceptance remain
+unverified. No physical measurement or vehicle response is established by these
+offline software checks. Final exact-head push/PR checks remain visible on Draft
+PR #20; neither Ready nor merge is part of this publication.
