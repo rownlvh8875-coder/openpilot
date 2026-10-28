@@ -71,10 +71,10 @@ The highest-risk cases are request mutation during apply, repeated source comman
 
 Files: car.capnp, new openpilot/selfdrive/car/actuation_receipt.py, card.py and test_actuation_receipt.py/test_actuation_receipt_schema.py.
 
-- [ ] Write schema/default/legacy ordinal and receipt/cohort tests; run them before implementation and record expected failures.
-- [ ] Add append-only schemas and helpers capture_actuation_receipt(sm, CP, CC, host_apply_ns, replay) / complete_actuation_receipt(receipt, output, speed_mps).
-- [ ] Integrate copy-before-apply and completion-after-return; retain existing publication/control/CAN call order and clear skipped cohorts.
-- [ ] Pass missing/stale/invalid source, final reboot/readiness, health/multi-panda, immutable copy, exception and repeated-command tests; commit.
+- [x] Write schema/default/legacy ordinal and receipt/cohort tests; run them before implementation and record expected failures.
+- [x] Add append-only schemas and helpers capture_actuation_receipt(sm, CP, CC, host_apply_ns, replay) / complete_actuation_receipt(receipt, output, speed_mps).
+- [x] Integrate copy-before-apply and completion-after-return; retain existing publication/control/CAN call order and clear skipped cohorts.
+- [x] Pass missing/stale/invalid source, final reboot/readiness, health/multi-panda, immutable copy, exception and repeated-command tests; commit.
 
 ### Task 2: Instantaneous controller evidence
 
@@ -102,3 +102,5 @@ Ruling: retain a native Linux validation checkout rather than changing productio
 Schema RED: four compatibility/default tests failed because the new fields were absent. Receipt RED: 51 tests failed with the producer module absent. GREEN: 166 tests pass, including schema, receipt, angle saturation, lateral readiness, lateral startup control and card diagnostics. Native Cap'n Proto 1.0.1 generated all cereal/car schemas and g++ accepted all generated C++ translation units with -fsyntax-only.
 
 The focused test plugin isolates external settings IO with a strict read-only synthetic Params double; it does not replace controller, schema, vehicle-model or CAN algorithms. Native Params bindings are not available in the minimal WSL environment. These tests do not validate Params or a production IPC process, and no real settings/logs are read.
+
+Task 1 complete: card integration RED had eight missing-receipt failures while six baseline differential cases passed. An additional malformed-publication case failed after initial integration, then passed with the telemetry-only guard. Current focused regression is 203 passed, zero failed/skipped, including existing Tesla final-boundary and event-readiness tests. Their AST fixture namespace now includes the real new telemetry helpers and the CP attribute present in production. The six card differential cases execute both complete production methods from the pinned base/current source, preserving apply arguments, returned actuator values, synthetic CAN payload bytes/count/order and original subscribed CC. Hardware-specific CAN packing still requires the separate Task 3 evidence; these are not physical CAN tests.

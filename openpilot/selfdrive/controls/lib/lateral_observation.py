@@ -20,7 +20,7 @@ def controller_kind(CP):
 def lateral_output_limited(kind, requested, returned, speed_mps):
   """Exact existing arithmetic; callers requiring finite evidence validate first."""
   if kind == 'mebCurvature':
-    return abs(requested.curvature - returned.curvature) * speed_mps ** 2 > LAT_CURVATURE_SATURATION_ACCEL
+    return abs(requested.curvature - returned.curvature) * speed_mps**2 > LAT_CURVATURE_SATURATION_ACCEL
   if kind == 'angle':
     return abs(requested.steeringAngleDeg - returned.steeringAngleDeg) > STEER_ANGLE_SATURATION_THRESHOLD
   if kind in ('torque', 'pid'):

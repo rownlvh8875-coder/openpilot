@@ -23,6 +23,7 @@ from opendbc.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.pandad import can_capnp_to_list, can_list_to_can_capnp
 from openpilot.selfdrive.car.alternative_experience import get_alternative_experience
 from openpilot.selfdrive.car.card_diagnostics import should_log_card_diagnostics
+from openpilot.selfdrive.car.actuation_receipt import capture_actuation_receipt, complete_actuation_receipt
 from openpilot.selfdrive.car.cruise import VCruiseCarrot
 from openpilot.selfdrive.car.car_specific import MockCarState
 from openpilot.selfdrive.car.openpilot_toggle import CruiseMainOpenpilotToggle
@@ -96,6 +97,7 @@ class Car:
     self.cruise_main_toggle = CruiseMainOpenpilotToggle(ButtonType.mainCruise)
 
     self.last_actuators_output = structs.CarControl.Actuators()
+    self.last_actuation_receipt = None
 
     self.params = Params()
 
@@ -347,6 +349,12 @@ class Car:
     co_send = messaging.new_message('carOutput')
     co_send.valid = self.sm.all_checks(['carControl'])
     co_send.carOutput.actuatorsOutput = self.last_actuators_output
+    if self.last_actuation_receipt is not None:
+      try:
+        co_send.carOutput.actuationReceipt = self.last_actuation_receipt
+      except Exception:
+        # Optional telemetry must not stop the existing publication/control path.
+        co_send.carOutput.actuationReceipt = car.ActuationReceipt.new_message()
     self.pm.send('carOutput', co_send)
 
     now_ns = time.monotonic_ns()
@@ -376,6 +384,8 @@ class Car:
 
   def controls_update(self, CS: car.CarState, CC: car.CarControl):
     """control update loop, driven by carControl"""
+
+    self.last_actuation_receipt = None
 
     if self.spas_signals.enabled:
       spas_sends = self.spas_signals.update(CS, self.sm, time.monotonic(), self.initialized_prev, self.CI.CC.frame)
@@ -426,7 +436,10 @@ class Car:
       now_nanos = self.can_log_mono_time if REPLAY else int(time.monotonic() * 1e9)
       model_v2 = self.sm['modelV2'] if self.sm.valid['modelV2'] and self.sm.alive['modelV2'] else None
       radar_state = self.sm['radarState'] if self.sm.valid['radarState'] and self.sm.alive['radarState'] else None
+      receipt = capture_actuation_receipt(self.sm, self.CP, CC, apply_start_ns, REPLAY)
+      receipt_speed_mps = CS.vEgo
       self.last_actuators_output, can_sends = self.CI.apply(CC, now_nanos, model_v2, radar_state)
+      self.last_actuation_receipt = complete_actuation_receipt(receipt, self.last_actuators_output, receipt_speed_mps)
       if self.tesla_signals.configured:
         fresh = all(self.sm.seen[s] and self.sm.alive[s] and self.sm.valid[s] and
                     0 <= time.monotonic() - self.sm.recv_time[s] <= 0.2 for s in ('carControl', 'modelV2'))
@@ -504,6 +517,8 @@ class Car:
                    self.sm.seen['onroadEvents'])
     if not self.CP.passive and initialized:
       self.controls_update(CS, self.sm['carControl'])
+    else:
+      self.last_actuation_receipt = None
 
     self.initialized_prev = initialized
     self.CS_prev = CS

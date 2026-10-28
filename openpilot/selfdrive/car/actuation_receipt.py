@@ -39,8 +39,15 @@ def _safety_permission(sm, CP, now_ns, replay):
   if not pandas or len(pandas) != len(configs):
     return 'unavailable'
   for state, config in zip(pandas, configs, strict=True):
-    if (state.pandaType == 'unknown' or state.safetyModel != config.safetyModel or state.safetyParam != config.safetyParam or
-        state.faultStatus != 'none' or len(state.faults) or state.heartbeatLost or state.safetyRxChecksInvalid):
+    if (
+      state.pandaType == 'unknown'
+      or state.safetyModel != config.safetyModel
+      or state.safetyParam != config.safetyParam
+      or state.faultStatus != 'none'
+      or len(state.faults)
+      or state.heartbeatLost
+      or state.safetyRxChecksInvalid
+    ):
       return 'unavailable'
   allowed = [state.controlsAllowed for state in pandas]
   if all(allowed):
