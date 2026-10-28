@@ -110,3 +110,8 @@ def test_real_controller_outputs_and_can_bytes_count_order_match_base_with_recei
     outcomes.append((trace, tuple(operations)))
   assert outcomes[1] == outcomes[0]
   assert sum(len(frames) for _, frames in outcomes[0][0]) > 0
+
+
+def test_offline_fixture_generation_does_not_replace_tracked_dbc_sources():
+  changed = subprocess.check_output(['git', 'diff', '--name-only', 'HEAD', '--', 'opendbc_repo/opendbc/dbc'], cwd=ROOT, text=True)
+  assert changed.splitlines() == []

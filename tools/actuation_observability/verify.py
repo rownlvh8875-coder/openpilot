@@ -81,7 +81,18 @@ def schema(include):
 def tests():
   env = dict(os.environ)
   env['PYTHONPATH'] = str(ROOT)
-  subprocess.run([sys.executable, 'opendbc_repo/opendbc/dbc/generator/generator.py'], cwd=ROOT, env=env, check=True)
+  # The upstream create_all() overwrites two tracked radar DBCs. Generate in
+  # its existing isolated API instead and materialize only missing fixtures.
+  fixture_code = '''
+from pathlib import Path
+from opendbc.dbc.generator.generator import generate_all
+output = Path('opendbc_repo/opendbc/dbc')
+for name, content in generate_all().items():
+  target = output / (name + '.dbc')
+  if not target.exists():
+    target.write_text(content, encoding='utf-8')
+'''
+  subprocess.run([sys.executable, '-c', fixture_code], cwd=ROOT, env=env, check=True)
   subprocess.run(
     [
       sys.executable,
