@@ -47,7 +47,7 @@ def receipt(sm=None, cp=None, cc=None, output=None, replay=False, now=NOW):
   module = importlib.import_module('openpilot.selfdrive.car.actuation_receipt')
   if sm is None:
     sm, cp, cc = source()
-  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), now, replay)
+  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), now, replay, safety_now_ns=now)
   if output is None:
     output = car.CarControl.Actuators.new_message(torque=0.25)
   return module.complete_actuation_receipt(pending, output.as_reader(), 4.0)
@@ -73,7 +73,7 @@ def test_receipt_binds_source_final_request_output_and_publication_metadata():
 def test_snapshot_copies_survive_request_and_returned_output_mutation():
   module = importlib.import_module('openpilot.selfdrive.car.actuation_receipt')
   sm, cp, cc = source()
-  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False)
+  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False, safety_now_ns=NOW)
   cc.latActive = False
   cc.actuators.torque = -0.5
   output = car.CarControl.Actuators.new_message(torque=0.125)
@@ -215,7 +215,7 @@ def test_cohort_output_comparison_is_controller_aware(kind, field, requested_val
   setattr(cc.actuators, field, requested_value)
   returned = car.CarControl.Actuators.new_message()
   setattr(returned, field, output)
-  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False)
+  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False, safety_now_ns=NOW)
   assert module.complete_actuation_receipt(pending, returned.as_reader(), speed).outputLimitState == want
 
 
@@ -243,7 +243,7 @@ def test_internal_observability_error_cannot_escape_control_boundary():
       raise RuntimeError('synthetic malformed input')
 
   module = importlib.import_module('openpilot.selfdrive.car.actuation_receipt')
-  pending = module.capture_actuation_receipt(Broken(), None, Broken(), NOW, False)
+  pending = module.capture_actuation_receipt(Broken(), None, Broken(), NOW, False, safety_now_ns=NOW)
   result = module.complete_actuation_receipt(pending, Broken(), 4.0)
   assert result.hostLateralActivityState == 'unavailable'
   assert result.outputLimitState == 'unavailable'
@@ -265,5 +265,52 @@ def test_receipt_calls_have_no_file_network_thread_or_process_side_effect(monkey
   monkeypatch.setattr(socket, 'socket', forbidden)
   monkeypatch.setattr(subprocess, 'Popen', forbidden)
   monkeypatch.setattr(threading.Thread, 'start', forbidden)
-  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False)
+  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False, safety_now_ns=NOW)
   assert module.complete_actuation_receipt(pending, output.as_reader(), 4.0).controllerOutputReturned
+
+
+@pytest.mark.parametrize('boot_now,panda_stamp,want', [(1_010_000_000_000, 1_009_980_000_000, 'allowed'), (10_500_000_000, 9_490_000_000, 'unavailable')])
+def test_panda_boot_clock_and_monotonic_receive_clock_are_not_conflated(boot_now, panda_stamp, want):
+  module = importlib.import_module('openpilot.selfdrive.car.actuation_receipt')
+  sm, cp, cc = source()
+  sm.logMonoTime['pandaStates'] = panda_stamp
+  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False, safety_now_ns=boot_now)
+  result = module.complete_actuation_receipt(pending, cc.actuators.as_reader(), 4.0)
+  assert result.hostLateralActivityState == 'active'
+  assert result.safetyPermissionState == want
+  assert result.sourceCarControlMonoTime.clockDomain == 'monotonic'
+  assert result.hostApplyMonoTime.clockDomain == 'monotonic'
+  assert result.safetyObservationMonoTime.value == boot_now
+  assert result.safetyObservationMonoTime.clockDomain == 'bootTime'
+  if want == 'allowed':
+    assert result.safetyStateMonoTime.value == panda_stamp
+    assert result.safetyStateMonoTime.clockDomain == 'bootTime'
+
+
+def test_unknown_boot_clock_cannot_assert_fresh_safety_permission():
+  module = importlib.import_module('openpilot.selfdrive.car.actuation_receipt')
+  sm, cp, cc = source()
+  pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False, safety_now_ns=None)
+  assert module.complete_actuation_receipt(pending, cc.actuators.as_reader(), 4.0).safetyPermissionState == 'unavailable'
+
+
+@pytest.mark.parametrize('field', ['pandaType', 'safetyModel'])
+def test_unrecognized_wire_enum_is_not_a_known_panda_or_safety_configuration(field):
+  sm, cp, cc = source()
+  state = sm['pandaStates'][0].as_builder()
+  setattr(state, field, 65535)
+  if field == 'safetyModel':
+    cp = cp.as_builder()
+    cp.safetyConfigs[0].safetyModel = 65535
+  sm['pandaStates'] = [state.as_reader()]
+  assert receipt(sm, cp, cc).safetyPermissionState == 'unavailable'
+
+
+def test_boot_clock_query_failure_is_unavailable(monkeypatch):
+  module = importlib.import_module('openpilot.selfdrive.car.actuation_receipt')
+
+  def unavailable(clock):
+    raise OSError('synthetic unavailable clock')
+
+  monkeypatch.setattr(module.time, 'clock_gettime_ns', unavailable)
+  assert module.safety_observation_clock_ns() is None

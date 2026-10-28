@@ -616,6 +616,12 @@ struct ObservationMonoTime {
     unavailable @0 :Void;
     value @1 :UInt64;  # publication/apply-start monotonic nanoseconds, never receive time
   }
+  clockDomain @2 :ClockDomain;
+  enum ClockDomain {
+    unavailable @0;
+    monotonic @1;  # Python/Linux CLOCK_MONOTONIC
+    bootTime @2;   # Linux CLOCK_BOOTTIME, as used by C++ pandaStates
+  }
 }
 
 struct LateralControlObservation {
@@ -652,6 +658,7 @@ struct ActuationReceipt {
   outputLimitState @9 :LateralControlObservation.LimitState;
   hostApplyMonoTime @10 :ObservationMonoTime;
   controllerOutputReturned @11 :Bool;
+  safetyObservationMonoTime @12 :ObservationMonoTime;  # CLOCK_BOOTTIME sampled for this host apply
 
   enum HostLateralActivityState {
     unavailable @0;

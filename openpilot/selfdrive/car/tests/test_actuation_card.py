@@ -39,6 +39,7 @@ def card_methods(baseline=False):
     'messaging': NS(new_message=lambda topic: new_message(topic, clock.now)),
     'time': NS(monotonic_ns=lambda: clock.now, monotonic=lambda: clock.now / 1e9, thread_time=lambda: 0.0),
     'capture_actuation_receipt': capture_actuation_receipt,
+    'safety_observation_clock_ns': lambda: clock.now,
     'complete_actuation_receipt': complete_actuation_receipt,
     'can_list_to_can_capnp': encode,
     'CAN_BACKEND': 'synthetic',
