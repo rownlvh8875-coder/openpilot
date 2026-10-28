@@ -1,0 +1,32 @@
+name: actuation-observability
+on:
+  push:
+    branches: [feature/autotune-actuation-observability]
+  pull_request:
+    branches: [base/carrot-wip-604bc0a]
+permissions:
+  contents: read
+jobs:
+  offline-evidence:
+    if: github.repository == 'rownlvh8875-coder/openpilot'
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ['3.12.3', '3.12']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install offline test and schema build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y capnproto libcapnp-dev g++
+          python -m pip install pytest==8.4.2 pytest-cov pycapnp==2.1.0 numpy setproctitle requests cffi sentry-sdk crcmod-plus tqdm zstandard pyserial pyyaml pycryptodome ruff==0.17.3 ty
+      - run: git diff --check 604bc0a22733e648ec05b268da1ffaae7db52a69
+      - run: python tools/actuation_observability/verify.py lint
+      - run: ty check --no-progress openpilot/selfdrive/car/actuation_receipt.py openpilot/selfdrive/controls/lib/lateral_observation.py
+      - run: python tools/actuation_observability/verify.py schema
+      - run: python tools/actuation_observability/verify.py test

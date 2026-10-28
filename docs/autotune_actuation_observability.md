@@ -92,8 +92,8 @@ Files: log.capnp, new controls/lib/lateral_observation.py, latcontrol_pid.py/tor
 
 Files: focused behavior tests, a fork-only observability workflow and this document.
 
-- [ ] Pin synthetic legacy schema/CAN evidence at the exact base; compare real controller outputs, apply arguments and CAN bytes/count/order with observations enabled/absent.
-- [ ] Run native schema loading/generation, regression, lint/type checks where supported, and document all exclusions or blockers.
+- [x] Pin synthetic legacy schema/CAN evidence at the exact base; compare real controller outputs, apply arguments and CAN bytes/count/order with observations enabled/absent.
+- [x] Run native schema loading/generation, regression, lint/type checks where supported, and document all exclusions or blockers.
 - [ ] Obtain fresh read-only whole-branch review, fix material findings with regression tests, push only the clean base and feature to the user's fork, and create the required Draft PR.
 - [ ] Inspect exact-head CI, record the precise readiness-for-re-audit decision, keep the worktree clean and stop. Do not declare Phase 8B ready.
 
@@ -114,3 +114,34 @@ Ruling: source tracing proved different Python/C++ clock domains. Add explicit d
 Task 2 complete: instantaneous/controller evidence RED was 27 failures with 14 unchanged behavior cases passing. Two full state_control cases then failed on missing same-command observation. The implementation and fixture namespace update make the focused suite pass 283 tests. Three controllers each match pinned-baseline returns, legacy log fields, PID state and saturation timer over 80 synthetic transitions. Thirty full publish-comparison blocks match the pinned source, including inactive cached state and non-finite legacy inputs. The original arithmetic and thresholds are shared unchanged with the receipt; the receipt adds finite/known guards without changing controlsd behavior. An unknown calculation wire enum failed before being mapped to unavailable. MEB observes the actual bounded curvature PID and leaves its dummy angle evidence unavailable.
 
 Ruling: use a pure shared output comparison, with the original active guard, controller branch selection, operators and threshold values preserved. Move the existing angle/curvature constants without changing their values, and preserve their old module exports. Differential tests exercise the exact pinned/current production blocks rather than a second implementation of the expected result. Native Params and full vehicle IPC remain outside the focused offline test claim.
+
+## Reproducible offline checks
+
+The fork-only actuation-observability workflow runs on Ubuntu 24.04 with Python 3.12.3 and current 3.12, for feature pushes and Draft PRs against the pinned base. Existing deployment/model/wiki workflows are branch-filtered and are not invoked by this feature/base publication. The ordinary user-docs PR check is preserved. Docs-Not-Needed: read-only developer telemetry; no user-facing setting or control behavior changes.
+
+With the workflow's explicit development dependencies and native capnproto/libcapnp-dev/g++ installed, run from the repository root:
+
+```sh
+git diff --check 604bc0a22733e648ec05b268da1ffaae7db52a69
+python tools/actuation_observability/verify.py lint
+ty check --no-progress openpilot/selfdrive/car/actuation_receipt.py openpilot/selfdrive/controls/lib/lateral_observation.py
+python tools/actuation_observability/verify.py schema
+python tools/actuation_observability/verify.py test
+```
+
+The test command expands to pytest -c /dev/null --rootdir=. --noconftest -q with the explicit observability_support settings-IO plugin, branch coverage for the two new runtime helpers, and the eleven safe offline test files listed in verify.py. It first generates DBCs using the existing source generator. Git must contain the pinned base object for differential tests. No network fixture, route loader, actual CAN interface, full control process or device Params is used.
+
+Local result: 287 passed, zero failed/skipped. New-helper branch-inclusive coverage is 95.65% combined (receipt 96.18%, lateral observation 94.74%). Nine new Python files pass Ruff formatting; no new Ruff diagnostics exist. Forty-one existing diagnostics in touched legacy source remain unchanged (card 23, controlsd 10, angle 2, torque 6); the baseline-aware check compares diagnostic multiplicity, code, message and source line rather than suppressing newly introduced errors. ty reports no issues in the two new runtime modules. Native schema generation and g++ syntax compilation pass for all four generated car/cereal C++ units. This is not a complete openpilot/SCons production build or verification of native Params/IPC/hardware/real-log suites.
+
+Real offline CAN evidence: Honda Civic, Toyota RAV4, Nissan Leaf and VW ID.4 MEB each execute forty synthetic cycles both with pinned-base controller.update and with current code plus attached observations/receipt copying. Actual CarInterface, CarController, DBC and CAN packers run; no control algorithm or packer is mocked. All returned actuator values, CAN payload bytes/count/order and synthetic settings operation traces match. Existing interface-construction settings writes are captured only in an in-memory test double; no actual Params read/write occurs. All temporary aliases are restored, including modules imported during a test. These profiles prove software regression behavior for the synthetic cases, not vehicle suitability, road performance or physical acceptance.
+
+The fresh core review at 872d7f54096e36a1efd012941851109cb808960d found zero Critical/Important/Minor issues and independently reran 283 checks. Final review/CI must additionally cover the later return-state enum clarification and Task 3 files; exact remote outcomes are recorded by the final Draft PR checks/report.
+
+## Separate Phase 8A contract re-audit procedure
+
+1. Pin the exact observability feature head, its unchanged upstream base, changed blob hashes and actual generated schemas. Do not repeat the old unchanged-upstream Phase 8B precheck.
+2. Trace controlsd calculation -> same CarControl observation -> card final suppression -> unchanged CI.apply arguments -> stored return -> next carOutput, including skipped/repeated commands. Match both source command and host-apply timestamps; never join to the current command by receiver frame.
+3. Verify controller kind/version, enum availability, legacy defaults, MEB real-PID evidence and unavailable dummy/unknown states. Independently interpret instantaneous and timer-qualified states.
+4. Verify each timestamp's domain, cohort publication delay, boot-clock safety age, monotonic receipt age, known configuration-correlated multi-panda health and unsupported/simulation/replay exclusions. Permission observations cannot acknowledge individual CAN frames.
+5. Revisit the remaining Snapshot estimate/sign/freshness/context and caller-owned immutable-baseline contracts. This branch adds no registry, vehicle limits, adapter or application permission.
+6. Only that separate audit may judge Phase 8B readiness. This work can establish OBSERVABILITY_READY_FOR_CONTRACT_REAUDIT, never vehicle acceptance or authorization for persistence/Apply.
