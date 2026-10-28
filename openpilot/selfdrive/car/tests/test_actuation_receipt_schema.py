@@ -23,7 +23,7 @@ def test_old_output_decodes_without_fabricating_available_evidence():
     assert receipt.hostApplyMonoTime.which() == 'unavailable'
     assert not receipt._has('finalRequestedActuators')
     assert not receipt._has('controllerOutputActuators')
-    assert not receipt.controllerOutputReturned
+    assert receipt.controllerOutputReturned == 'unavailable'
 
 
 def test_old_field_ordinals_and_types_are_unchanged():

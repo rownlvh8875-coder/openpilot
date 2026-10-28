@@ -657,7 +657,7 @@ struct ActuationReceipt {
   controllerOutputActuators @8 :CarControl.Actuators;
   outputLimitState @9 :LateralControlObservation.LimitState;
   hostApplyMonoTime @10 :ObservationMonoTime;
-  controllerOutputReturned @11 :Bool;
+  controllerOutputReturned @11 :ControllerReturnState;
   safetyObservationMonoTime @12 :ObservationMonoTime;  # CLOCK_BOOTTIME sampled for this host apply
 
   enum HostLateralActivityState {
@@ -670,6 +670,11 @@ struct ActuationReceipt {
     unavailable @0;
     disallowed @1;
     allowed @2;
+  }
+
+  enum ControllerReturnState {
+    unavailable @0;
+    returned @1;
   }
 }
 

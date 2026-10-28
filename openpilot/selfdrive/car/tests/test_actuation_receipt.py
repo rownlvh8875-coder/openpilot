@@ -67,7 +67,7 @@ def test_receipt_binds_source_final_request_output_and_publication_metadata():
   assert result.finalRequestedActuators.torque == 0.25
   assert result.controllerOutputActuators.torque == 0.25
   assert result.outputLimitState == 'notLimited'
-  assert result.controllerOutputReturned
+  assert result.controllerOutputReturned == 'returned'
 
 
 def test_snapshot_copies_survive_request_and_returned_output_mutation():
@@ -266,7 +266,7 @@ def test_receipt_calls_have_no_file_network_thread_or_process_side_effect(monkey
   monkeypatch.setattr(subprocess, 'Popen', forbidden)
   monkeypatch.setattr(threading.Thread, 'start', forbidden)
   pending = module.capture_actuation_receipt(sm, cp, cc.as_reader(), NOW, False, safety_now_ns=NOW)
-  assert module.complete_actuation_receipt(pending, output.as_reader(), 4.0).controllerOutputReturned
+  assert module.complete_actuation_receipt(pending, output.as_reader(), 4.0).controllerOutputReturned == 'returned'
 
 
 @pytest.mark.parametrize('boot_now,panda_stamp,want', [(1_010_000_000_000, 1_009_980_000_000, 'allowed'), (10_500_000_000, 9_490_000_000, 'unavailable')])

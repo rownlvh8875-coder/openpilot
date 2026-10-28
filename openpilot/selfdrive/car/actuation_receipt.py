@@ -113,7 +113,7 @@ def complete_actuation_receipt(receipt, returned, speed_mps):
   try:
     if receipt.receiptVersion != 1:
       return car.ActuationReceipt.new_message().as_reader()
-    receipt.controllerOutputReturned = True
+    receipt.controllerOutputReturned = 'returned'
     if _finite_actuators(returned):
       receipt.controllerOutputActuators = returned
       if receipt._has('finalRequestedActuators'):
