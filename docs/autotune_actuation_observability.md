@@ -98,3 +98,7 @@ Files: focused behavior tests, a fork-only observability workflow and this docum
 Baseline setup: the Windows checkout is isolated on the requested feature branch. WSL Ubuntu 24.04 / Python 3.12.3 uses a separate native-filesystem validation checkout of the same Git objects. Pytest collection on the NTFS mount traversed a protected Windows root entry; this environment failure is separate from product tests. Native schema tests use the repository-pinned pycapnp 2.1.0. No reference/vehicle process is started.
 
 Ruling: retain a native Linux validation checkout rather than changing production paths or pytest policy to accommodate NTFS collection. Only task-owned files are synchronized into it; final verification must identify the real source commit.
+
+Schema RED: four compatibility/default tests failed because the new fields were absent. Receipt RED: 51 tests failed with the producer module absent. GREEN: 166 tests pass, including schema, receipt, angle saturation, lateral readiness, lateral startup control and card diagnostics. Native Cap'n Proto 1.0.1 generated all cereal/car schemas and g++ accepted all generated C++ translation units with -fsyntax-only.
+
+The focused test plugin isolates external settings IO with a strict read-only synthetic Params double; it does not replace controller, schema, vehicle-model or CAN algorithms. Native Params bindings are not available in the minimal WSL environment. These tests do not validate Params or a production IPC process, and no real settings/logs are read.

@@ -1,0 +1,208 @@
+{
+  "fields": {
+    "CarControl": {
+      "activeDEPRECATED": {
+        "ordinal": 7,
+        "type": "bool"
+      },
+      "actuators": {
+        "ordinal": 6,
+        "type": "struct"
+      },
+      "actuatorsOutputDEPRECATED": {
+        "ordinal": 10,
+        "type": "struct"
+      },
+      "angularVelocity": {
+        "ordinal": 14,
+        "type": "list"
+      },
+      "brakeDEPRECATED": {
+        "ordinal": 2,
+        "type": "float32"
+      },
+      "cruiseControl": {
+        "ordinal": 4,
+        "type": "struct"
+      },
+      "currentCurvature": {
+        "ordinal": 17,
+        "type": "float32"
+      },
+      "enabled": {
+        "ordinal": 0,
+        "type": "bool"
+      },
+      "gasDEPRECATED": {
+        "ordinal": 1,
+        "type": "float32"
+      },
+      "hudControl": {
+        "ordinal": 5,
+        "type": "struct"
+      },
+      "latActive": {
+        "ordinal": 11,
+        "type": "bool"
+      },
+      "leftBlinker": {
+        "ordinal": 15,
+        "type": "bool"
+      },
+      "longActive": {
+        "ordinal": 12,
+        "type": "bool"
+      },
+      "orientationNED": {
+        "ordinal": 13,
+        "type": "list"
+      },
+      "pitchDEPRECATED": {
+        "ordinal": 9,
+        "type": "float32"
+      },
+      "rightBlinker": {
+        "ordinal": 16,
+        "type": "bool"
+      },
+      "rollDEPRECATED": {
+        "ordinal": 8,
+        "type": "float32"
+      },
+      "steeringTorqueDEPRECATED": {
+        "ordinal": 3,
+        "type": "float32"
+      }
+    },
+    "CarOutput": {
+      "actuatorsOutput": {
+        "ordinal": 0,
+        "type": "struct"
+      }
+    },
+    "LateralAngleState": {
+      "active": {
+        "ordinal": 0,
+        "type": "bool"
+      },
+      "output": {
+        "ordinal": 2,
+        "type": "float32"
+      },
+      "saturated": {
+        "ordinal": 3,
+        "type": "bool"
+      },
+      "steeringAngleDeg": {
+        "ordinal": 1,
+        "type": "float32"
+      },
+      "steeringAngleDesiredDeg": {
+        "ordinal": 4,
+        "type": "float32"
+      }
+    },
+    "LateralPIDState": {
+      "active": {
+        "ordinal": 0,
+        "type": "bool"
+      },
+      "angleError": {
+        "ordinal": 3,
+        "type": "float32"
+      },
+      "f": {
+        "ordinal": 6,
+        "type": "float32"
+      },
+      "i": {
+        "ordinal": 5,
+        "type": "float32"
+      },
+      "output": {
+        "ordinal": 7,
+        "type": "float32"
+      },
+      "p": {
+        "ordinal": 4,
+        "type": "float32"
+      },
+      "saturated": {
+        "ordinal": 8,
+        "type": "bool"
+      },
+      "steeringAngleDeg": {
+        "ordinal": 1,
+        "type": "float32"
+      },
+      "steeringAngleDesiredDeg": {
+        "ordinal": 9,
+        "type": "float32"
+      },
+      "steeringRateDeg": {
+        "ordinal": 2,
+        "type": "float32"
+      }
+    },
+    "LateralTorqueState": {
+      "active": {
+        "ordinal": 0,
+        "type": "bool"
+      },
+      "actualLateralAccel": {
+        "ordinal": 9,
+        "type": "float32"
+      },
+      "d": {
+        "ordinal": 4,
+        "type": "float32"
+      },
+      "desiredLateralAccel": {
+        "ordinal": 10,
+        "type": "float32"
+      },
+      "desiredLateralJerk": {
+        "ordinal": 11,
+        "type": "float32"
+      },
+      "error": {
+        "ordinal": 1,
+        "type": "float32"
+      },
+      "errorRate": {
+        "ordinal": 8,
+        "type": "float32"
+      },
+      "f": {
+        "ordinal": 5,
+        "type": "float32"
+      },
+      "i": {
+        "ordinal": 3,
+        "type": "float32"
+      },
+      "nnLog": {
+        "ordinal": 13,
+        "type": "list"
+      },
+      "output": {
+        "ordinal": 6,
+        "type": "float32"
+      },
+      "p": {
+        "ordinal": 2,
+        "type": "float32"
+      },
+      "saturated": {
+        "ordinal": 7,
+        "type": "bool"
+      },
+      "version": {
+        "ordinal": 12,
+        "type": "int32"
+      }
+    }
+  },
+  "legacy_output_hex": "00000000080000000000000000000100000000000600000000000000000000000000803e000000000000000000000000000000000000000000000000000000000000000000000000",
+  "source_commit": "604bc0a22733e648ec05b268da1ffaae7db52a69"
+}
