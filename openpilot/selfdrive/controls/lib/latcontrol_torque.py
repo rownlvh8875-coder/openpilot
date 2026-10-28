@@ -12,6 +12,7 @@ from opendbc.car.interfaces import LatControlInputs
 from opendbc.car.vehicle_model import ACCELERATION_DUE_TO_GRAVITY
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.common.pid import PIDController
+from openpilot.selfdrive.controls.lib.lateral_observation import instantaneous_limit_state
 
 from openpilot.common.params import Params
 
@@ -300,6 +301,8 @@ class LatControlTorque(LatControl):
       pid_log.actualLateralAccel = float(actual_lateral_accel)
       pid_log.desiredLateralAccel = float(desired_lateral_accel)
       pid_log.saturated = bool(self._check_saturation(self.steer_max - abs(output_torque) < 1e-3, CS, steer_limited_by_controls, curvature_limited))
+      raw_limited = bool(self.steer_max - abs(output_torque) < 1e-3) if math.isfinite(output_torque) else None
+      pid_log.instantaneousLimitState = instantaneous_limit_state(active, raw_limited, curvature_limited)
       #if nn_log is not None:
       #  pid_log.nnLog = nn_log
 

@@ -82,9 +82,9 @@ Files: car.capnp, new openpilot/selfdrive/car/actuation_receipt.py, card.py and 
 
 Files: log.capnp, new controls/lib/lateral_observation.py, latcontrol_pid.py/torque.py/angle.py, controlsd.py, test_lateral_observation.py and affected AST test fixtures.
 
-- [ ] Write failing active/inactive/raw-limit/curvature tests and timer/return equivalence checks for PID, torque, angle and actual MEB PID.
-- [ ] Populate new state fields and same-CarControl evidence, with version/kind matching; dummy and missing metadata remain unavailable.
-- [ ] Prove unchanged controlsd limit comparisons and run existing controls/card regressions; commit.
+- [x] Write failing active/inactive/raw-limit/curvature tests and timer/return equivalence checks for PID, torque, angle and actual MEB PID.
+- [x] Populate new state fields and same-CarControl evidence, with version/kind matching; dummy and missing metadata remain unavailable.
+- [x] Prove unchanged controlsd limit comparisons and run existing controls/card regressions; commit.
 
 ### Task 3: Behavior evidence, CI and publication
 
@@ -108,3 +108,7 @@ The focused test plugin isolates external settings IO with a strict read-only sy
 Task 1 complete: card integration RED had eight missing-receipt failures while six baseline differential cases passed. An additional malformed-publication case failed after initial integration, then passed with the telemetry-only guard. Current focused regression is 203 passed, zero failed/skipped, including existing Tesla final-boundary and event-readiness tests. Their AST fixture namespace now includes the real new telemetry helpers and the CP attribute present in production. The six card differential cases execute both complete production methods from the pinned base/current source, preserving apply arguments, returned actuator values, synthetic CAN payload bytes/count/order and original subscribed CC. Hardware-specific CAN packing still requires the separate Task 3 evidence; these are not physical CAN tests.
 
 Ruling: source tracing proved different Python/C++ clock domains. Add explicit domain tags and the boot-clock observation anchor rather than assuming a common epoch; otherwise a suspend offset can make an old safety publication appear fresh. Three clock-domain tests failed before this extension. A malformed matching safetyModel wire enum also failed before known-enum validation. These are evidence corrections only, without changing any actuation decision.
+
+Task 2 complete: instantaneous/controller evidence RED was 27 failures with 14 unchanged behavior cases passing. Two full state_control cases then failed on missing same-command observation. The implementation and fixture namespace update make the focused suite pass 283 tests. Three controllers each match pinned-baseline returns, legacy log fields, PID state and saturation timer over 80 synthetic transitions. Thirty full publish-comparison blocks match the pinned source, including inactive cached state and non-finite legacy inputs. The original arithmetic and thresholds are shared unchanged with the receipt; the receipt adds finite/known guards without changing controlsd behavior. An unknown calculation wire enum failed before being mapped to unavailable. MEB observes the actual bounded curvature PID and leaves its dummy angle evidence unavailable.
+
+Ruling: use a pure shared output comparison, with the original active guard, controller branch selection, operators and threshold values preserved. Move the existing angle/curvature constants without changing their values, and preserve their old module exports. Differential tests exercise the exact pinned/current production blocks rather than a second implementation of the expected result. Native Params and full vehicle IPC remain outside the focused offline test claim.
