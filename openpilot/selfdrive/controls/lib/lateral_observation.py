@@ -30,7 +30,7 @@ def record_lateral_observation(CC, CP, controller_log, *, is_meb, meb_pid, curva
   """Attach only diagnostic fields to the exact command being published."""
   try:
     observation = CC.lateralControlObservation
-    observation.version = 1
+    observation.version = 2
     observation.controllerKind = 'mebCurvature' if is_meb else controller_kind(CP)
     if is_meb:
       # The existing angle log is dummy for MEB. Do not publish its new raw flag

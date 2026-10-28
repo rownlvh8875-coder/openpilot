@@ -105,7 +105,7 @@ def test_same_carcontrol_carries_actual_calculation_evidence(limited, want):
   status = log.ControlsState.LateralTorqueState.new_message(active=True, instantaneousLimitState=want)
   original = cc.actuators.to_dict()
   module.record_lateral_observation(cc, cp, status, is_meb=False, meb_pid=None, curvature_limited=False)
-  assert cc.lateralControlObservation.version == 1
+  assert cc.lateralControlObservation.version == 2
   assert cc.lateralControlObservation.controllerKind == 'torque'
   assert cc.lateralControlObservation.instantaneousLimitState == want
   assert cc.actuators.to_dict() == original
@@ -194,7 +194,7 @@ def test_complete_state_control_attaches_the_same_calculation_to_carcontrol(meb)
     control.sm['liveParameters'].angleOffsetDeg = 0.0
   cc, status = step()
   assert cc.latActive
-  assert cc.lateralControlObservation.version == 1
+  assert cc.lateralControlObservation.version == 2
   assert cc.lateralControlObservation.controllerKind == ('mebCurvature' if meb else 'torque')
   if meb:
     assert cc.lateralControlObservation.instantaneousLimitState == 'notLimited'

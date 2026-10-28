@@ -27,6 +27,6 @@ jobs:
           python -m pip install pytest==8.4.2 pytest-cov pycapnp==2.1.0 numpy setproctitle requests cffi sentry-sdk crcmod-plus tqdm zstandard pyserial pyyaml pycryptodome ruff==0.17.3 ty
       - run: git diff --check 604bc0a22733e648ec05b268da1ffaae7db52a69
       - run: python tools/actuation_observability/verify.py lint
-      - run: ty check --no-progress openpilot/selfdrive/car/actuation_receipt.py openpilot/selfdrive/controls/lib/lateral_observation.py
+      - run: ty check --no-progress openpilot/selfdrive/car/actuation_receipt.py openpilot/selfdrive/controls/lib/lateral_observation.py openpilot/selfdrive/controls/lib/measurement_observation.py
       - run: python tools/actuation_observability/verify.py schema
       - run: python tools/actuation_observability/verify.py test

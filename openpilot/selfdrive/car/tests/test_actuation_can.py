@@ -18,7 +18,8 @@ BASE = '604bc0a22733e648ec05b268da1ffaae7db52a69'
 
 
 @pytest.mark.parametrize('brand,model', [('honda', 'HONDA_CIVIC'), ('toyota', 'TOYOTA_RAV4'), ('nissan', 'NISSAN_LEAF'), ('volkswagen', 'VOLKSWAGEN_ID4_MK1')])
-def test_real_controller_outputs_and_can_bytes_count_order_match_base_with_receipts(brand, model, monkeypatch, request):
+@pytest.mark.parametrize('observation_version', [1, 2])
+def test_real_controller_outputs_and_can_bytes_count_order_match_base_with_receipts(brand, model, observation_version, monkeypatch, request):
   # Zero/false here deliberately disables optional settings in a synthetic test;
   # it is not a source-signal mapping, vehicle tuning value or production default.
   operations = []
@@ -94,9 +95,15 @@ def test_real_controller_outputs_and_can_bytes_count_order_match_base_with_recei
       now = NOW + index * 10_000_000
       pending = None
       if observed:
-        cc.lateralControlObservation.version = 1
+        cc.lateralControlObservation.version = observation_version
         cc.lateralControlObservation.controllerKind = controller_kind(cp)
         cc.lateralControlObservation.instantaneousLimitState = 'notLimited'
+        if observation_version == 2:
+          # Synthetic metadata exercises the real packers' unchanged argument path.
+          cc.lateralControlObservation.measurement.version = 1
+          cc.lateralControlObservation.measurement.measuredCurvatureInvM.value = 0.0
+          cc.lateralControlObservation.desiredTargetState = 'available'
+          cc.lateralControlObservation.desiredTargetCurvatureInvM.value = cc.actuators.curvature
         sm.logMonoTime = {'carControl': now - 1_000_000, 'pandaStates': now - 20_000_000}
         sm.recv_time = dict.fromkeys(sm.logMonoTime, (now - 500_000) / 1e9)
         pending = capture_actuation_receipt(sm, cp, cc.as_reader(), now, False, safety_now_ns=now)

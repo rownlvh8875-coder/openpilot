@@ -17,6 +17,9 @@ TESTS = [
   'openpilot/selfdrive/car/tests/test_actuation_card.py',
   'openpilot/selfdrive/car/tests/test_actuation_can.py',
   'openpilot/selfdrive/controls/tests/test_lateral_observation.py',
+  'openpilot/selfdrive/controls/tests/test_measurement_schema.py',
+  'openpilot/selfdrive/controls/tests/test_measurement_observation.py',
+  'openpilot/selfdrive/controls/tests/test_measurement_control.py',
   'openpilot/selfdrive/car/tests/test_card_diagnostics.py',
   'openpilot/selfdrive/car/tests/test_tesla_signal_card.py',
   'openpilot/selfdrive/controls/tests/test_angle_saturation.py',
@@ -107,6 +110,7 @@ for name, content in generate_all().items():
       'openpilot.selfdrive.car.tests.observability_support',
       '--cov=openpilot.selfdrive.car.actuation_receipt',
       '--cov=openpilot.selfdrive.controls.lib.lateral_observation',
+      '--cov=openpilot.selfdrive.controls.lib.measurement_observation',
       '--cov-branch',
       '--cov-report=term-missing:skip-covered',
       '--cov-fail-under=90',
@@ -116,6 +120,7 @@ for name, content in generate_all().items():
     env=env,
     check=True,
   )
+  subprocess.run([sys.executable, '-m', 'coverage', 'report', '--include=*/controls/lib/measurement_observation.py', '--fail-under=95'], cwd=ROOT, check=True)
 
 
 if __name__ == '__main__':

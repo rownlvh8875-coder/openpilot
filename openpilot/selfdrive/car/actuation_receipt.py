@@ -92,7 +92,7 @@ def capture_actuation_receipt(sm, CP, CC, host_apply_ns, replay, *, safety_now_n
       receipt.hostLateralActivityState = 'active' if CC.latActive else 'inactive'
       observed = CC.lateralControlObservation
       kind = controller_kind(CP)
-      if observed.version == 1 and kind != 'unknown' and observed.controllerKind == kind:
+      if observed.version in (1, 2) and kind != 'unknown' and observed.controllerKind == kind:
         receipt.controllerKind = kind
         state = str(observed.instantaneousLimitState)
         if state in ('unavailable', 'notLimited', 'limited'):

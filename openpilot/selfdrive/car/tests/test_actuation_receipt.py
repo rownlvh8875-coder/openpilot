@@ -85,8 +85,10 @@ def test_snapshot_copies_survive_request_and_returned_output_mutation():
   assert result.outputLimitState == 'limited'
 
 
-def test_repeated_command_has_distinct_apply_identity_and_no_current_command_mix():
+@pytest.mark.parametrize('version', [1, 2])
+def test_repeated_command_has_distinct_apply_identity_and_no_current_command_mix(version):
   sm, cp, cc = source()
+  cc.lateralControlObservation.version = version
   first = receipt(sm, cp, cc)
   second = receipt(sm, cp, cc, now=NOW + 1_000_000)
   cc.actuators.torque = -0.25
@@ -226,7 +228,7 @@ def test_malformed_or_unknown_calculation_evidence_never_becomes_not_limited(def
   if defect == 'missing_observation':
     cc = car.CarControl.new_message(latActive=True)
   elif defect == 'wrong_version':
-    cc.lateralControlObservation.version = 2
+    cc.lateralControlObservation.version = 3
   elif defect == 'wrong_kind':
     cc.lateralControlObservation.controllerKind = 'angle'
   elif defect == 'nonfinite_request':

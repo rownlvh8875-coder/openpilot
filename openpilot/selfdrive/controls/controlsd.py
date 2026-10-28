@@ -25,6 +25,7 @@ from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.steer_ratio import resolve_vehicle_model_steer_ratio
 from openpilot.selfdrive.controls.lib.lateral_readiness import LateralStartupGate, lateral_vehicle_parameters
+from openpilot.selfdrive.controls.lib.measurement_observation import capture_vm_measurement, capture_desired_target, record_measurement_and_target
 from openpilot.selfdrive.controls.lib.lateral_observation import (
   record_lateral_observation, lateral_output_limited, LAT_CURVATURE_SATURATION_ACCEL as LAT_CURVATURE_SATURATION_ACCEL,
 )
@@ -131,6 +132,7 @@ class Controls:
 
     steer_angle_without_offset = math.radians(CS.steeringAngleDeg - lp.angleOffsetDeg)
     self.curvature = -self.VM.calc_curvature(steer_angle_without_offset, CS.vEgo, lp.roll)
+    measurement_observation = capture_vm_measurement(self.sm, CS, lp, self.curvature, x, sr)
 
     # Update Torque Params
     if self.CP.lateralTuning.which() == 'torque':
@@ -227,6 +229,7 @@ class Controls:
       new_desired_curvature = smooth_value(model_v2.action.desiredCurvature, self.desired_curvature, 0.1)
 
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
+    desired_target_observation = capture_desired_target(self.desired_curvature)
 
     actuators.curvature = float(self.desired_curvature)
 
@@ -279,6 +282,7 @@ class Controls:
 
     record_lateral_observation(CC, self.CP, lac_log, is_meb=self.is_vw_meb,
                                meb_pid=self.meb_curvature_pid, curvature_limited=curvature_limited)
+    record_measurement_and_target(CC, measurement_observation, desired_target_observation)
     return CC, lac_log
 
   def publish(self, CC, lac_log):

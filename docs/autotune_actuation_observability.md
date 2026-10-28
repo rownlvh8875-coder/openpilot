@@ -1,5 +1,17 @@
 # Lateral actuation observability implementation plan and contract
 
+## Phase 8A.3 observation v2 extension
+
+The [measurement provenance contract](autotune_measurement_provenance.md) adds
+same-command current VM health/inputs/result and a pre-controller desired target.
+Observation v2 extends v1 fields without replacing their meaning. Receipt v1 and
+the original control/CAN path remain unchanged. Exact source-CC history lookup is
+required; no receipt-only measurement or current-command substitution is supported.
+Float64 optional unions preserve actual Python calculation values and distinguish
+unavailable from zero. This is software model evidence, not physical measurement.
+The following Phase 8A.1 plan/qualification is historical v1 evidence; the new
+document records v2 and requires a separate Phase 8A.4 exact-head re-audit.
+
 > For agentic workers: execute with superpowers:executing-plans and test-driven-development. The user explicitly authorized implementation, fork publication and a Draft PR.
 
 Goal: publish read-only, versioned evidence bound to one host CI.apply cohort, without changing control arguments, controller outputs or CAN.
@@ -137,7 +149,7 @@ Real offline CAN evidence: Honda Civic, Toyota RAV4, Nissan Leaf and VW ID.4 MEB
 
 The fresh core review at 872d7f54096e36a1efd012941851109cb808960d found zero Critical/Important/Minor issues and independently reran 283 checks. Final read-only review through 5b0d6e98cf0778942f4ee407cb15d7164ad02a21 additionally covered the return-state enum and Task 3 files, found zero Critical/Important/Minor issues and independently passed all 287 tests. No runtime change follows that reviewed implementation head.
 
-## Qualification and publication record
+## Qualification and publication record (Phase 8A.1 historical)
 
 Status: **OBSERVABILITY_READY_FOR_CONTRACT_REAUDIT**. This is source-observability evidence readiness only. Phase 8B remains NOT_STARTED; its earlier precheck remains BLOCKED on the original source. Persistence and Apply remain NOT_AUTHORIZED.
 

@@ -625,9 +625,17 @@ struct ObservationMonoTime {
 }
 
 struct LateralControlObservation {
-  version @0 :UInt16;  # 0: unavailable; 1: this contract
+  version @0 :UInt16;  # 0: unavailable; 1: kind/limit; 2: measurement/target
   controllerKind @1 :ControllerKind;
   instantaneousLimitState @2 :LimitState;
+  measurement @3 :LateralMeasurementObservation;
+  desiredTargetState @4 :TargetState;
+  desiredTargetCurvatureInvM @5 :ObservationFloat64;
+
+  enum TargetState {
+    unavailable @0;
+    available @1;
+  }
 
   enum ControllerKind {
     unknown @0;
@@ -642,6 +650,43 @@ struct LateralControlObservation {
     unavailable @0;
     notLimited @1;
     limited @2;
+  }
+}
+
+struct ObservationFloat64 {
+  # Preserve the actual Python calculation, including a genuinely available zero.
+  union {
+    unavailable @0 :Void;
+    value @1 :Float64;
+  }
+}
+
+struct LateralMeasurementObservation {
+  version @0 :UInt16;  # 0: unavailable; 1: these measurement semantics
+  measurementMode @1 :MeasurementMode;
+  validityState @2 :ValidityState;
+  measuredCurvatureInvM @3 :ObservationFloat64;
+  carStateMonoTime @4 :ObservationMonoTime;
+  liveParametersMonoTime @5 :ObservationMonoTime;
+  inputSpeedMps @6 :ObservationFloat64;
+  inputSteeringAngleDeg @7 :ObservationFloat64;
+  effectiveStiffnessFactor @8 :ObservationFloat64;
+  effectiveSteerRatio @9 :ObservationFloat64;
+  effectiveAngleOffsetDeg @10 :ObservationFloat64;
+  effectiveRollRad @11 :ObservationFloat64;
+  carStateHealthState @12 :ValidityState;
+  liveParametersHealthState @13 :ValidityState;
+  calculationMonoTime @14 :ObservationMonoTime;  # before the source CC Event is created
+
+  enum MeasurementMode {
+    unavailable @0;
+    vehicleModelLive @1;
+    vehicleModelFallback @2;
+  }
+  enum ValidityState {
+    unavailable @0;
+    invalid @1;
+    valid @2;
   }
 }
 
