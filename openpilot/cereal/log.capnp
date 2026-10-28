@@ -887,6 +887,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     output @7 :Float32;
     saturated @8 :Bool;
     steeringAngleDesiredDeg @9 :Float32;
+    instantaneousLimitState @10 :Car.LateralControlObservation.LimitState;
    }
 
   struct LateralTorqueState {
@@ -904,6 +905,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     desiredLateralJerk @11 :Float32;
     version @12 :Int32;
     nnLog @13 :List(Float32);
+    instantaneousLimitState @14 :Car.LateralControlObservation.LimitState;
    }
 
   struct LateralAngleState {
@@ -912,6 +914,7 @@ struct ControlsState @0x97ff69c53601abf1 {
     output @2 :Float32;
     saturated @3 :Bool;
     steeringAngleDesiredDeg @4 :Float32;
+    instantaneousLimitState @5 :Car.LateralControlObservation.LimitState;
   }
 
   struct LateralDebugState {

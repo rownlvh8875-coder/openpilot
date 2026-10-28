@@ -8,6 +8,7 @@ from openpilot.cereal import car, log
 from openpilot.selfdrive.car.tests.test_tesla_turn_signals import N, feedback, opened, state
 from openpilot.selfdrive.car.tesla_turn_signals import TeslaTurnSignals
 from openpilot.selfdrive.controls.lib.lateral_readiness import LateralStartupGate
+from openpilot.selfdrive.car.actuation_receipt import capture_actuation_receipt, complete_actuation_receipt, safety_observation_clock_ns
 from openpilot.selfdrive.pandad import can_list_to_can_capnp
 
 
@@ -81,6 +82,8 @@ def test_final_card_boundary_uses_gated_control_and_fresh_intent(gate, suspend_n
   tree = ast.parse(path.read_text())
   method = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "controls_update")
   ns = {"car": car, "REPLAY": False, "can_list_to_can_capnp": can_list_to_can_capnp,
+        "capture_actuation_receipt": capture_actuation_receipt, "complete_actuation_receipt": complete_actuation_receipt,
+        "safety_observation_clock_ns": safety_observation_clock_ns,
         "time": NS(monotonic=lambda: (N - suspend_ns) / 1e9, monotonic_ns=lambda: N - suspend_ns,
                    clock_gettime_ns=lambda clock: N if clock == 7 else N - suspend_ns, CLOCK_BOOTTIME=7, CLOCK_MONOTONIC=1)}
   exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), "exec"), ns)
@@ -112,7 +115,7 @@ def test_final_card_boundary_uses_gated_control_and_fresh_intent(gate, suspend_n
 
   controller = NS(apply=apply)
   stages = ("apply", "sendcan", "total")
-  card = NS(spas_signals=NS(enabled=False), initialized_prev=True, params=params, sm=sm, CI=controller,
+  card = NS(CP=car.CarParams.new_message().as_reader(), spas_signals=NS(enabled=False), initialized_prev=True, params=params, sm=sm, CI=controller,
             pm=NS(send=lambda *args: sent.append(args)), tesla_signals=signals,
             lateral_startup=LateralStartupGate(ready=gate != "startup"), card_diag_recv_ns=N - suspend_ns,
             card_diag_stage_names=stages, card_diag_stage_current=dict.fromkeys(stages, 0),

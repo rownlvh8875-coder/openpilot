@@ -20,11 +20,15 @@ from opendbc.car.volkswagen.values import MEB_CURVATURE_PID_KP, MEB_CURVATURE_PI
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature, is_volkswagen_meb
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
-from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, STEER_ANGLE_SATURATION_THRESHOLD
+from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, STEER_ANGLE_SATURATION_THRESHOLD as STEER_ANGLE_SATURATION_THRESHOLD
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.steer_ratio import resolve_vehicle_model_steer_ratio
 from openpilot.selfdrive.controls.lib.lateral_readiness import LateralStartupGate, lateral_vehicle_parameters
+from openpilot.selfdrive.controls.lib.measurement_observation import capture_vm_measurement, capture_desired_target, record_measurement_and_target
+from openpilot.selfdrive.controls.lib.lateral_observation import (
+  record_lateral_observation, lateral_output_limited, LAT_CURVATURE_SATURATION_ACCEL as LAT_CURVATURE_SATURATION_ACCEL,
+)
 
 
 from openpilot.common.realtime import DT_CTRL, DT_MDL
@@ -41,7 +45,6 @@ from openpilot.selfdrive.carrot.bluetooth.physical import HoldReader
 State = log.SelfdriveState.OpenpilotState
 LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
-LAT_CURVATURE_SATURATION_ACCEL = 0.1  # infiniteCable2 LatControlCurvature: 곡률 기반 steer_limited 임계 (m/s^2 환산)
 
 ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 
@@ -129,6 +132,7 @@ class Controls:
 
     steer_angle_without_offset = math.radians(CS.steeringAngleDeg - lp.angleOffsetDeg)
     self.curvature = -self.VM.calc_curvature(steer_angle_without_offset, CS.vEgo, lp.roll)
+    measurement_observation = capture_vm_measurement(self.sm, CS, lp, self.curvature, x, sr)
 
     # Update Torque Params
     if self.CP.lateralTuning.which() == 'torque':
@@ -225,6 +229,7 @@ class Controls:
       new_desired_curvature = smooth_value(model_v2.action.desiredCurvature, self.desired_curvature, 0.1)
 
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
+    desired_target_observation = capture_desired_target(self.desired_curvature)
 
     actuators.curvature = float(self.desired_curvature)
 
@@ -275,6 +280,9 @@ class Controls:
         cloudlog.error(f"actuators.{p} not finite {actuators.to_dict()}")
         setattr(actuators, p, 0.0)
 
+    record_lateral_observation(CC, self.CP, lac_log, is_meb=self.is_vw_meb,
+                               meb_pid=self.meb_curvature_pid, curvature_limited=curvature_limited)
+    record_measurement_and_target(CC, measurement_observation, desired_target_observation)
     return CC, lac_log
 
   def publish(self, CC, lac_log):
@@ -410,16 +418,8 @@ class Controls:
 
     if self.sm['selfdriveState'].active:
       CO = self.sm['carOutput']
-      if self.is_vw_meb:
-        # VW MEB: 곡률로 액추에이션하므로 곡률 기반으로 steer_limited 계산 (infiniteCable2 curvatureDEPRECATED 분기와 동일).
-        # carrot 기본 angle 분기는 steeringAngleDeg(미사용 출력) 기준이라 우리 곡률 제한을 반영 못 함.
-        self.steer_limited_by_safety = abs(CC.actuators.curvature - CO.actuatorsOutput.curvature) * CS.vEgo ** 2 > \
-                                              LAT_CURVATURE_SATURATION_ACCEL
-      elif self.CP.steerControlType == car.CarParams.SteerControlType.angle:
-        self.steer_limited_by_safety = abs(CC.actuators.steeringAngleDeg - CO.actuatorsOutput.steeringAngleDeg) > \
-                                              STEER_ANGLE_SATURATION_THRESHOLD
-      else:
-        self.steer_limited_by_safety = abs(CC.actuators.torque - CO.actuatorsOutput.torque) > 1e-2
+      kind = 'mebCurvature' if self.is_vw_meb else ('angle' if self.CP.steerControlType == car.CarParams.SteerControlType.angle else 'torque')
+      self.steer_limited_by_safety = lateral_output_limited(kind, CC.actuators, CO.actuatorsOutput, CS.vEgo)
 
     # TODO: both controlsState and carControl valids should be set by
     #       sm.all_checks(), but this creates a circular dependency

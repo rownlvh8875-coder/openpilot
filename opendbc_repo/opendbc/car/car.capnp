@@ -471,6 +471,9 @@ struct CarControl {
   angularVelocity @14 :List(Float32);
   currentCurvature @17 :Float32;  # From vehicle model
 
+  # Read-only calculation evidence carried by this exact command event.
+  lateralControlObservation @18 :LateralControlObservation;
+
   cruiseControl @4 :CruiseControl;
   hudControl @5 :HUDControl;
 
@@ -608,11 +611,125 @@ struct CarControl {
   actuatorsOutputDEPRECATED @10 :Actuators;
 }
 
+struct ObservationMonoTime {
+  union {
+    unavailable @0 :Void;
+    value @1 :UInt64;  # publication/apply-start monotonic nanoseconds, never receive time
+  }
+  clockDomain @2 :ClockDomain;
+  enum ClockDomain {
+    unavailable @0;
+    monotonic @1;  # Python/Linux CLOCK_MONOTONIC
+    bootTime @2;   # Linux CLOCK_BOOTTIME, as used by C++ pandaStates
+  }
+}
+
+struct LateralControlObservation {
+  version @0 :UInt16;  # 0: unavailable; 1: kind/limit; 2: measurement/target
+  controllerKind @1 :ControllerKind;
+  instantaneousLimitState @2 :LimitState;
+  measurement @3 :LateralMeasurementObservation;
+  desiredTargetState @4 :TargetState;
+  desiredTargetCurvatureInvM @5 :ObservationFloat64;
+
+  enum TargetState {
+    unavailable @0;
+    available @1;
+  }
+
+  enum ControllerKind {
+    unknown @0;
+    torque @1;
+    pid @2;
+    angle @3;
+    mebCurvature @4;
+    other @5;
+  }
+
+  enum LimitState {
+    unavailable @0;
+    notLimited @1;
+    limited @2;
+  }
+}
+
+struct ObservationFloat64 {
+  # Preserve the actual Python calculation, including a genuinely available zero.
+  union {
+    unavailable @0 :Void;
+    value @1 :Float64;
+  }
+}
+
+struct LateralMeasurementObservation {
+  version @0 :UInt16;  # 0: unavailable; 1: these measurement semantics
+  measurementMode @1 :MeasurementMode;
+  validityState @2 :ValidityState;
+  measuredCurvatureInvM @3 :ObservationFloat64;
+  carStateMonoTime @4 :ObservationMonoTime;
+  liveParametersMonoTime @5 :ObservationMonoTime;
+  inputSpeedMps @6 :ObservationFloat64;
+  inputSteeringAngleDeg @7 :ObservationFloat64;
+  effectiveStiffnessFactor @8 :ObservationFloat64;
+  effectiveSteerRatio @9 :ObservationFloat64;
+  effectiveAngleOffsetDeg @10 :ObservationFloat64;
+  effectiveRollRad @11 :ObservationFloat64;
+  carStateHealthState @12 :ValidityState;
+  liveParametersHealthState @13 :ValidityState;
+  calculationMonoTime @14 :ObservationMonoTime;  # before the source CC Event is created
+
+  enum MeasurementMode {
+    unavailable @0;
+    vehicleModelLive @1;
+    vehicleModelFallback @2;
+  }
+  enum ValidityState {
+    unavailable @0;
+    invalid @1;
+    valid @2;
+  }
+}
+
+struct ActuationReceipt {
+  receiptVersion @0 :UInt16;  # 0: no completed receipt; 1: this contract
+  sourceCarControlMonoTime @1 :ObservationMonoTime;
+  hostLateralActivityState @2 :HostLateralActivityState;
+  safetyPermissionState @3 :SafetyPermissionState;
+  safetyStateMonoTime @4 :ObservationMonoTime;
+  controllerKind @5 :LateralControlObservation.ControllerKind;
+  instantaneousControllerLimitState @6 :LateralControlObservation.LimitState;
+  finalRequestedActuators @7 :CarControl.Actuators;
+  controllerOutputActuators @8 :CarControl.Actuators;
+  outputLimitState @9 :LateralControlObservation.LimitState;
+  hostApplyMonoTime @10 :ObservationMonoTime;
+  controllerOutputReturned @11 :ControllerReturnState;
+  safetyObservationMonoTime @12 :ObservationMonoTime;  # CLOCK_BOOTTIME sampled for this host apply
+
+  enum HostLateralActivityState {
+    unavailable @0;
+    inactive @1;
+    active @2;
+  }
+
+  enum SafetyPermissionState {
+    unavailable @0;
+    disallowed @1;
+    allowed @2;
+  }
+
+  enum ControllerReturnState {
+    unavailable @0;
+    returned @1;
+  }
+}
+
 struct CarOutput {
   # Any car specific rate limits or quirks applied by
   # the CarController are reflected in actuatorsOutput
   # and matches what is sent to the car
   actuatorsOutput @0 :CarControl.Actuators;
+  # Previous completed host apply cohort; no physical or per-CAN acknowledgement.
+  actuationReceipt @1 :ActuationReceipt;
 }
 
 # ****** car param ******

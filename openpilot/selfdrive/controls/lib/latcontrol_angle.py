@@ -3,8 +3,9 @@ import numpy as np
 
 from openpilot.cereal import log
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
-
-STEER_ANGLE_SATURATION_THRESHOLD = 3.0  # Degrees
+from openpilot.selfdrive.controls.lib.lateral_observation import (
+  instantaneous_limit_state, STEER_ANGLE_SATURATION_THRESHOLD as STEER_ANGLE_SATURATION_THRESHOLD,
+)
 
 
 class LatControlAngle(LatControl):
@@ -25,6 +26,8 @@ class LatControlAngle(LatControl):
 
     angle_control_saturated = abs(angle_steers_des - CS.steeringAngleDeg) > STEER_ANGLE_SATURATION_THRESHOLD
     angle_log.saturated = bool(self._check_saturation(angle_control_saturated, CS, steer_limited_by_controls, curvature_limited))
+    finite_angle = math.isfinite(angle_steers_des) and math.isfinite(CS.steeringAngleDeg)
+    angle_log.instantaneousLimitState = instantaneous_limit_state(active, bool(angle_control_saturated) if finite_angle else None, curvature_limited)
     angle_log.steeringAngleDeg = float(CS.steeringAngleDeg)
     angle_log.steeringAngleDesiredDeg = float(angle_steers_des) if not CS.steeringPressed else float(CS.steeringAngleDeg)
     return 0, float(angle_steers_des), angle_log

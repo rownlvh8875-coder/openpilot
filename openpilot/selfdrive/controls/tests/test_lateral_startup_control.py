@@ -16,6 +16,8 @@ from opendbc.car.interfaces import CarInterfaceBase
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature, get_lag_adjusted_curvature
 from openpilot.selfdrive.controls.lib.latcontrol import MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
+from openpilot.selfdrive.controls.lib.lateral_observation import record_lateral_observation
+from openpilot.selfdrive.controls.lib.measurement_observation import capture_vm_measurement, capture_desired_target, record_measurement_and_target
 from openpilot.selfdrive.controls.lib.lateral_readiness import LateralStartupGate, lateral_vehicle_parameters
 from openpilot.selfdrive.controls.lib.steer_ratio import resolve_vehicle_model_steer_ratio
 from openpilot.selfdrive.controls.tests.test_lateral_readiness import Messages
@@ -34,6 +36,9 @@ def control_fixture():
         'LaneChangeDirection': log.LaneChangeDirection, 'ACTUATOR_FIELDS': tuple(car.CarControl.Actuators.schema.fields),
         'clip_curvature': clip_curvature, 'get_lag_adjusted_curvature': get_lag_adjusted_curvature,
         'resolve_vehicle_model_steer_ratio': resolve_vehicle_model_steer_ratio,
+        'record_lateral_observation': record_lateral_observation,
+        'capture_vm_measurement': capture_vm_measurement, 'capture_desired_target': capture_desired_target,
+        'record_measurement_and_target': record_measurement_and_target,
         'lateral_vehicle_parameters': lateral_vehicle_parameters,
         'cloudlog': NS(error=lambda msg: pytest.fail(msg))}
   exec(compile(ast.Module(body=nodes, type_ignores=[]), str(path), 'exec'), ns)
@@ -64,7 +69,7 @@ def control_fixture():
                LoC=NS(reset=lambda: None, update=lambda *args: (0.0, 0.0, 0.0), long_control_state='off'),
                carrot_controls=NS(lat_suspend_control=lambda cs, active: active), is_vw_meb=False,
                desired_curvature=0.0, lateral_startup=LateralStartupGate(), lateral_started=False,
-               steer_limited_by_safety=False)
+               steer_limited_by_safety=False, meb_curvature_pid=None)
   return control, lambda: ns['state_control'](control)
 
 
