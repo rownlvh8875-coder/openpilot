@@ -28,13 +28,16 @@ def run_lateral_gate(*, brand="tesla", supported=True, speed=0.0, stopped=True, 
   controls.params = SimpleNamespace(get_float=lambda _key: 0.0, get_bool=lambda _key: always_lateral)
   controls.is_vw_meb = False
   controls.lateral_startup = SimpleNamespace(ready=True, update=lambda *_args: True)
-  controls.VM = SimpleNamespace(update_params=lambda *_args: None, calc_curvature=lambda *_args: 0.0)
-  state = car.CarState.new_message(vEgo=speed, standstill=stopped, gearShifter=gear, latEnabled=lat_enabled,
-                                   steerFaultTemporary=temporary_fault, steerFaultPermanent=permanent_fault)
+  # This fixture isolates lateral admission, not vehicle-model geometry.
+  controls.VM = SimpleNamespace(update_geometry=lambda _ratio: None, update_params=lambda *_args: None, calc_curvature=lambda *_args: 0.0)
+  state = car.CarState.new_message(
+    vEgo=speed, standstill=stopped, gearShifter=gear, latEnabled=lat_enabled, steerFaultTemporary=temporary_fault, steerFaultPermanent=permanent_fault
+  )
   controls.sm = {
     "carState": state,
     "liveParameters": SimpleNamespace(stiffnessFactor=1.0, steerRatio=15.0, angleOffsetDeg=0.0, roll=0.0),
-    "longitudinalPlan": SimpleNamespace(), "modelV2": SimpleNamespace(),
+    "longitudinalPlan": SimpleNamespace(),
+    "modelV2": SimpleNamespace(),
     "selfdriveState": SimpleNamespace(enabled=active, active=active),
   }
 

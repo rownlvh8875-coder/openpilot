@@ -51,17 +51,38 @@ def test_controlsd_applies_live_setting_changes_to_vehicle_model(is_vw_meb):
 
     def all_checks(self, _services):
       return True
+
   updates = []
-  instance = SimpleNamespace(is_vw_meb=is_vw_meb,
-                             lateral_startup=LateralStartupGate(ready=True),
-                             CP=SimpleNamespace(steerRatio=15.0),
-                             sm=Messages(carState=SimpleNamespace(), liveParameters=live),
-                             params=SimpleNamespace(get_float=lambda key: settings[key]),
-                             VM=SimpleNamespace(update_params=lambda stiff, sr: updates.append((stiff, sr))))
-  for custom, rate, learned, expected in [(0, 100, 14.97, 14.97), (159, 30, 14.97, 15.9),
-                                         (200, 30, 14.97, 20.0), (0, 30, 14.97, 4.491),
-                                         (0, 100, 15.1, 15.1), (0, 0, 15.1, 15.1)]:
+  calls = []
+
+  def update_params(stiffness, ratio):
+    updates.append((stiffness, ratio))
+    calls.append(("params",))
+
+  instance = SimpleNamespace(
+    is_vw_meb=is_vw_meb,
+    lateral_startup=LateralStartupGate(ready=True),
+    CP=SimpleNamespace(steerRatio=15.0),
+    sm=Messages(carState=SimpleNamespace(), liveParameters=live),
+    params=SimpleNamespace(get_float=lambda key: settings[key]),
+    VM=SimpleNamespace(update_geometry=lambda ratio: calls.append(("geometry", ratio)), update_params=update_params),
+  )
+  # Explicitly synthetic ratios exercise live changes and missing-field fallback.
+  for custom, rate, learned, geometry, expected in [
+    (0, 100, 14.97, None, 14.97),
+    (159, 30, 14.97, 0.4, 15.9),
+    (200, 30, 14.97, 0.6, 20.0),
+    (0, 30, 14.97, 0.55, 4.491),
+    (0, 100, 15.1, 0.35, 15.1),
+    (0, 0, 15.1, None, 15.1),
+  ]:
     settings.update(CustomSR=custom, SteerRatioRate=rate)
     live.steerRatio = learned
+    if geometry is None:
+      vars(live).pop("centerToFrontRatio", None)
+    else:
+      live.centerToFrontRatio = geometry
+    calls.clear()
     namespace["state_control"](instance)
+    assert calls == [("geometry", 0.0 if geometry is None else geometry), ("params",)]
     assert updates[-1] == pytest.approx((0.69, expected))
